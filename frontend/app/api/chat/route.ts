@@ -64,6 +64,7 @@ export async function POST(req: Request) {
    - Example: "# Title\n\n- Point 1\n- Point 2"
 3. **Flow**: Create nodes in a logical order. They will be displayed as a vertical list from top to bottom.
 4. **Interactive**: Use the chat mainly for brief questions or confirmation.
+5. **Language**: Always respond in the same language as the user's input. If the user speaks Japanese, you MUST respond in Japanese.
 
 # Tools
 You MUST use the \`generate_response\` tool for every turn to provide your answer.
@@ -93,17 +94,39 @@ This tool puts text in the chat and updates the board.
 
         // Convert messages to Google SDK format
         // history expects { role: 'user' | 'model', parts: [...] }
-        const history = messages.slice(0, -1).map((m: any) => ({
-            role: m.role === 'user' ? 'user' : 'model',
-            parts: [{ text: m.content }]
-        }));
+        const history = messages.slice(0, -1).map((m: any) => {
+            // Check if client already sent 'parts' (new format)
+            if (m.parts) {
+                return {
+                    role: m.role === 'user' ? 'user' : 'model',
+                    parts: m.parts
+                };
+            }
+            // Fallback for old format or simple text
+            return {
+                role: m.role === 'user' ? 'user' : 'model',
+                parts: [{ text: m.content || '' }]
+            };
+        });
 
         const lastMessage = messages[messages.length - 1];
+        // The client now sends the last message with 'parts' if it has images
+        // We need to pass the parts to sendMessageStream if available, or just text
+
         const chat = model.startChat({
             history: history,
         });
 
-        const result = await chat.sendMessageStream(lastMessage.content);
+        // If lastMessage has parts (multimodal), use that. Otherwise use content.
+        const userMessageContent = lastMessage.parts ? lastMessage.parts : lastMessage.content;
+
+        console.log("--- Sending to Gemini ---");
+        console.log("User Message Content Structure:", JSON.stringify(userMessageContent, (key, value) => {
+            if (key === 'data') return '[BASE64_DATA_TRUNCATED]';
+            return value;
+        }, 2));
+
+        const result = await chat.sendMessageStream(userMessageContent);
 
         // Create a streaming response
         const stream = new ReadableStream({

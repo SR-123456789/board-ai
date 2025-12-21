@@ -5,31 +5,75 @@ export type Message = {
     id: string;
     role: 'user' | 'assistant';
     content: string;
+    parts?: any[];
 };
+
+// Helper to upload file and get URI
+async function uploadFile(file: File): Promise<{ fileData: { fileUri: string; mimeType: string } }> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return {
+        fileData: {
+            fileUri: data.fileUri,
+            mimeType: data.mimeType,
+        }
+    };
+}
 
 export const useChatStream = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const { addNode, updateNode, removeNode } = useBoardStore();
 
-    const sendMessage = async (input: string) => {
-        if (!input.trim() || isLoading) return;
+    const sendMessage = async (input: string, files: File[] = []) => {
+        if ((!input.trim() && files.length === 0) || isLoading) return;
 
-        const userMessage: Message = {
-            id: Date.now().toString(),
+        setIsLoading(true);
+
+        const id = Date.now().toString();
+        let userMessage: Message = {
+            id,
             role: 'user',
             content: input
         };
 
-        setMessages(prev => [...prev, userMessage]);
-        setIsLoading(true);
-
         try {
+            // Process files if any
+            if (files.length > 0) {
+                // Upload all files first
+                const fileParts = await Promise.all(
+                    files.map(file => uploadFile(file))
+                );
+
+                userMessage.parts = [
+                    ...fileParts,
+                    { text: input }
+                ];
+            }
+
+            setMessages(prev => [...prev, userMessage]);
+
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages: [...messages, userMessage].map(m => ({ role: m.role, content: m.content }))
+                    messages: [...messages, userMessage].map(m => {
+                        if (m.parts) {
+                            return { role: m.role, parts: m.parts };
+                        }
+                        return { role: m.role, content: m.content };
+                    })
                 })
             });
 
