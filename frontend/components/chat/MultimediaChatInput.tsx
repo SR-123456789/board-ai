@@ -87,9 +87,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading }) => {
 
                 <Button
                     type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 text-neutral-500 hover:text-neutral-900"
+                    className="shrink-0 w-10 h-10 p-0 text-neutral-500 hover:text-neutral-900 bg-transparent hover:bg-neutral-100"
                     onClick={() => fileInputRef.current?.click()}
                 >
                     <Paperclip className="w-5 h-5" />
@@ -112,7 +110,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading }) => {
                     />
                 </div>
 
-                <Button type="submit" size="icon" disabled={isLoading || (!input.trim() && files.length === 0)}>
+                <Button type="submit" className="w-10 h-10 p-0" disabled={isLoading || (!input.trim() && files.length === 0)}>
                     <Send className="w-4 h-4" />
                 </Button>
             </form>

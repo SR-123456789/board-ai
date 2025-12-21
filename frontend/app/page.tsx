@@ -35,7 +35,7 @@ export default function Dashboard() {
           <Button
             onClick={handleCreateRoom}
             className="w-full h-12 text-lg gap-2"
-            size="lg"
+
           >
             <Plus className="w-5 h-5" />
             Create New Room
