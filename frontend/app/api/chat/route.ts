@@ -1,0 +1,159 @@
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+
+// Allow streaming responses up to 60 seconds
+export const maxDuration = 60;
+
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || '');
+
+const GENERATE_RESPONSE_TOOL = {
+    name: "generate_response",
+    description: "Generate a response with text comment and board updates.",
+    parameters: {
+        type: SchemaType.OBJECT,
+        properties: {
+            comment: {
+                type: SchemaType.STRING,
+                description: "The explanation or text to show in the chat.",
+            },
+            operations: {
+                type: SchemaType.ARRAY,
+                description: "List of operations to perform on the whiteboard.",
+                items: {
+                    type: SchemaType.OBJECT,
+                    properties: {
+                        action: { type: SchemaType.STRING, enum: ["create", "update", "delete"] },
+                        node: {
+                            type: SchemaType.OBJECT,
+                            properties: {
+                                id: { type: SchemaType.STRING },
+                                type: { type: SchemaType.STRING, enum: ["text", "sticky", "equation", "problem"] },
+                                content: { type: SchemaType.STRING },
+                                style: {
+                                    type: SchemaType.OBJECT,
+                                    properties: {
+                                        color: { type: SchemaType.STRING },
+                                        backgroundColor: { type: SchemaType.STRING }
+                                    }
+                                }
+                            },
+                            required: ["type", "content"]
+                        }
+                    },
+                    required: ["action", "node"]
+                }
+            }
+        },
+        required: ["comment", "operations"]
+    }
+};
+
+export async function POST(req: Request) {
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+        return new Response('API Key missing', { status: 500 });
+    }
+
+    try {
+        const { messages } = await req.json();
+
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.0-flash-exp",
+            systemInstruction: `You are "Board AI", a professional tutor who teaches by using a vertical notebook/whiteboard.
+# Core Behaviors
+1. **Board First**: Your primary teaching method is the whiteboard. MINIMIZE chat ("generate_response.comment"). MAXIMIZE board usage ("generate_response.operations").
+2. **Markdown**: Always use **Markdown** syntax in "operations.node.content". Use headers, lists, code blocks, and bold text to organize information visually.
+   - Example: "# Title\n\n- Point 1\n- Point 2"
+3. **Flow**: Create nodes in a logical order. They will be displayed as a vertical list from top to bottom.
+4. **Interactive**: Use the chat mainly for brief questions or confirmation.
+
+# Tools
+You MUST use the \`generate_response\` tool for every turn to provide your answer.
+This tool puts text in the chat and updates the board.
+
+# Board Operations
+- Use 'create' to add new nodes (text, sticky notes, equation, problem).
+- Use 'update' to modify existing nodes.
+- Use 'delete' to remove nodes.
+- **NO COORDINATES**: Do not try to position nodes. Just create them, and the frontend will stack them vertically.
+
+# IMPORTANT: Output Requirements
+- You MUST provided an 'operations' array with at least one action if you are teaching something.
+- DO NOT output empty objects {}.`,
+            tools: [
+                {
+                    functionDeclarations: [GENERATE_RESPONSE_TOOL],
+                },
+            ],
+            toolConfig: {
+                functionCallingConfig: {
+                    mode: "ANY", // Force tool usage
+                    allowedFunctionNames: ["generate_response"]
+                }
+            }
+        });
+
+        // Convert messages to Google SDK format
+        // history expects { role: 'user' | 'model', parts: [...] }
+        const history = messages.slice(0, -1).map((m: any) => ({
+            role: m.role === 'user' ? 'user' : 'model',
+            parts: [{ text: m.content }]
+        }));
+
+        const lastMessage = messages[messages.length - 1];
+        const chat = model.startChat({
+            history: history,
+        });
+
+        const result = await chat.sendMessageStream(lastMessage.content);
+
+        // Create a streaming response
+        const stream = new ReadableStream({
+            async start(controller) {
+                const encoder = new TextEncoder();
+                try {
+                    for await (const chunk of result.stream) {
+                        // Check for function calls
+                        const functionCalls = chunk.functionCalls();
+                        if (functionCalls && functionCalls.length > 0) {
+                            for (const call of functionCalls) {
+                                if (call.name === 'generate_response') {
+                                    const args = call.args;
+                                    const data = JSON.stringify({
+                                        type: 'tool_call',
+                                        toolName: 'generate_response',
+                                        args: args
+                                    });
+                                    controller.enqueue(encoder.encode(data + '\n'));
+                                }
+                            }
+                        }
+
+                        // Check for text (should be empty if tool is forced, but usually model explains reasoning if not forced)
+                        const text = chunk.text();
+                        if (text) {
+                            const data = JSON.stringify({
+                                type: 'text',
+                                content: text
+                            });
+                            controller.enqueue(encoder.encode(data + '\n'));
+                        }
+                    }
+                    controller.close();
+                } catch (err) {
+                    console.error('Streaming error:', err);
+                    controller.error(err);
+                }
+            }
+        });
+
+        return new Response(stream, {
+            headers: {
+                'Content-Type': 'application/x-ndjson',
+                'Transfer-Encoding': 'chunked',
+            },
+        });
+
+    } catch (error) {
+        console.error('Route Handler Error:', error);
+        return new Response(JSON.stringify({ error: 'Internal Server Error', details: String(error) }), { status: 500 });
+    }
+}
