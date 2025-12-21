@@ -1,11 +1,11 @@
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType, FunctionDeclaration, FunctionCallingMode } from '@google/generative-ai';
 
 // Allow streaming responses up to 60 seconds
 export const maxDuration = 60;
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || '');
 
-const GENERATE_RESPONSE_TOOL = {
+const GENERATE_RESPONSE_TOOL: FunctionDeclaration = {
     name: "generate_response",
     description: "Generate a response with text comment and board updates.",
     parameters: {
@@ -21,12 +21,12 @@ const GENERATE_RESPONSE_TOOL = {
                 items: {
                     type: SchemaType.OBJECT,
                     properties: {
-                        action: { type: SchemaType.STRING, enum: ["create", "update", "delete"] },
+                        action: { type: SchemaType.STRING, enum: ["create", "update", "delete"], format: "enum" },
                         node: {
                             type: SchemaType.OBJECT,
                             properties: {
                                 id: { type: SchemaType.STRING },
-                                type: { type: SchemaType.STRING, enum: ["text", "sticky", "equation", "problem"] },
+                                type: { type: SchemaType.STRING, enum: ["text", "sticky", "equation", "problem"], format: "enum" },
                                 content: { type: SchemaType.STRING },
                                 style: {
                                     type: SchemaType.OBJECT,
@@ -86,7 +86,7 @@ This tool puts text in the chat and updates the board.
             ],
             toolConfig: {
                 functionCallingConfig: {
-                    mode: "ANY", // Force tool usage
+                    mode: FunctionCallingMode.ANY,
                     allowedFunctionNames: ["generate_response"]
                 }
             }
