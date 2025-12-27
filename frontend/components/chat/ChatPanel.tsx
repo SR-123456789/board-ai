@@ -10,12 +10,14 @@ interface ChatPanelProps {
     messages: Message[];
     isLoading: boolean;
     onSend: (input: string, files?: File[]) => void;
+    onMessageClick?: (chatTurnId: string) => void;
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
     messages,
     isLoading,
-    onSend
+    onSend,
+    onMessageClick
 }) => {
     const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -45,7 +47,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                     </div>
                 )}
                 {messages.map((m) => (
-                    <ChatMessage key={m.id} message={m} />
+                    <ChatMessage
+                        key={m.id}
+                        message={m}
+                        onClick={m.role === 'assistant' && m.chatTurnId ? () => onMessageClick?.(m.chatTurnId!) : undefined}
+                    />
                 ))}
                 {isLoading && (
                     <div className="flex items-center gap-2 text-neutral-400 text-xs ml-4">

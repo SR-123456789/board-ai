@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { BoardCanvas } from '@/components/board/BoardCanvas';
+import { useEffect, useRef, useCallback } from 'react';
+import { BoardCanvas, BoardCanvasRef } from '@/components/board/BoardCanvas';
 import { ChatPanel } from '@/components/chat/ChatPanel';
 import { useBoardStore } from '@/hooks/use-board-store';
 import { useChatStream } from '@/hooks/use-chat-stream';
@@ -11,6 +11,7 @@ export default function RoomPage() {
     const { reset } = useBoardStore();
     const params = useParams();
     const { messages, isLoading, suggestedQuestions, sendMessage } = useChatStream();
+    const boardRef = useRef<BoardCanvasRef>(null);
 
     // Reset board state when entering a new room
     useEffect(() => {
@@ -21,11 +22,16 @@ export default function RoomPage() {
         sendMessage(question);
     };
 
+    const handleMessageClick = useCallback((chatTurnId: string) => {
+        boardRef.current?.scrollToGroup(chatTurnId);
+    }, []);
+
     return (
         <div className="flex h-screen w-screen overflow-hidden">
             {/* Left: Board (takes remaining space) */}
             <div className="flex-1 relative">
                 <BoardCanvas
+                    ref={boardRef}
                     suggestedQuestions={suggestedQuestions}
                     onSuggestedQuestionClick={handleSuggestedQuestionClick}
                     isLoading={isLoading}
@@ -38,6 +44,7 @@ export default function RoomPage() {
                     messages={messages}
                     isLoading={isLoading}
                     onSend={sendMessage}
+                    onMessageClick={handleMessageClick}
                 />
             </div>
         </div>

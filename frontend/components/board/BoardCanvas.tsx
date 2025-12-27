@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { useBoardStore } from '@/hooks/use-board-store';
 import { BoardNode } from './BoardNode';
 import { SuggestedQuestions } from './SuggestedQuestions';
 import { BoardNode as BoardNodeType } from '@/types/board';
+import { ChevronUp } from 'lucide-react';
 
 interface BoardCanvasProps {
     suggestedQuestions?: string[];
@@ -13,15 +14,21 @@ interface BoardCanvasProps {
     isLoading?: boolean;
 }
 
+export interface BoardCanvasRef {
+    scrollToGroup: (turnId: string) => void;
+}
+
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
 const formatTimestamp = (timestamp?: number) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
     const weekday = WEEKDAYS[date.getDay()];
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${weekday} ${hours}:${minutes}`;
+    return `${month}/${day} (${weekday}) ${hours}:${minutes}`;
 };
 
 // Group nodes by chatTurnId
@@ -52,13 +59,26 @@ const groupNodesByTurn = (nodes: BoardNodeType[]) => {
     return groups;
 };
 
-export const BoardCanvas: React.FC<BoardCanvasProps> = ({
+export const BoardCanvas = forwardRef<BoardCanvasRef, BoardCanvasProps>(({
     suggestedQuestions = [],
     onSuggestedQuestionClick = () => { },
     isLoading = false
-}) => {
+}, ref) => {
     const { nodes } = useBoardStore();
     const groupedNodes = useMemo(() => groupNodesByTurn(nodes), [nodes]);
+    const groupRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+    const scrollToGroup = (turnId: string) => {
+        const element = groupRefs.current[turnId];
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
+    // Expose scrollToGroup to parent via ref
+    useImperativeHandle(ref, () => ({
+        scrollToGroup
+    }), []);
 
     return (
         <div className="w-full h-full bg-slate-50 dark:bg-neutral-950 overflow-y-auto p-8 custom-scrollbar">
@@ -71,20 +91,36 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
                 ) : (
                     <>
                         {groupedNodes.map((group) => (
-                            <div key={group.turnId} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                {/* Chat turn timestamp - compact horizontal line with time */}
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-neutral-300 dark:via-neutral-700 to-transparent" />
-                                    <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-500 tracking-wide">
-                                        {formatTimestamp(group.timestamp)}
-                                    </span>
-                                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-neutral-300 dark:via-neutral-700 to-transparent" />
-                                </div>
-                                {/* Nodes in this turn */}
-                                <div className="flex flex-col gap-4">
-                                    {group.nodes.map((node) => (
-                                        <BoardNode key={node.id} node={node} />
-                                    ))}
+                            <div
+                                key={group.turnId}
+                                ref={(el) => { groupRefs.current[group.turnId] = el; }}
+                                className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+                            >
+                                {/* Timeline-style: timestamp with connecting line to content */}
+                                <div className="flex gap-3">
+                                    {/* Left timeline indicator - clickable */}
+                                    <button
+                                        onClick={() => scrollToGroup(group.turnId)}
+                                        className="group flex flex-col items-center pt-1 cursor-pointer hover:opacity-100 transition-all"
+                                        title="クリックでこのセクションの先頭へ"
+                                    >
+                                        <div className="w-2 h-2 rounded-full bg-neutral-400 dark:bg-neutral-500 group-hover:bg-blue-500 group-hover:scale-125 transition-all" />
+                                        <div className="w-0.5 flex-1 bg-gradient-to-b from-neutral-300 dark:from-neutral-600 to-transparent group-hover:from-blue-400 transition-all relative">
+                                            {/* Hover arrow indicator */}
+                                            <ChevronUp className="absolute -left-[7px] top-1 w-4 h-4 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </div>
+                                    </button>
+                                    {/* Content with timestamp header */}
+                                    <div className="flex-1 pb-2">
+                                        <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-500 block mb-2">
+                                            {formatTimestamp(group.timestamp)}
+                                        </span>
+                                        <div className="flex flex-col gap-4">
+                                            {group.nodes.map((node) => (
+                                                <BoardNode key={node.id} node={node} />
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -98,4 +134,6 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
             </div>
         </div>
     );
-};
+});
+
+BoardCanvas.displayName = 'BoardCanvas';

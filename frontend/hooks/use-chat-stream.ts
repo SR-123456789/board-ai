@@ -6,6 +6,7 @@ export type Message = {
     role: 'user' | 'assistant';
     content: string;
     parts?: any[];
+    chatTurnId?: string; // Links to board content
 };
 
 // Helper to upload file and get URI
@@ -90,8 +91,8 @@ export const useChatStream = () => {
             let aiContent = "";
             let toolArgs: any = null;
 
-            // Prepare placeholder AI message
-            setMessages(prev => [...prev, { id: aiMessageId, role: 'assistant', content: '' }]);
+            // Prepare placeholder AI message with chatTurnId
+            setMessages(prev => [...prev, { id: aiMessageId, role: 'assistant', content: '', chatTurnId: chatTurnId }]);
 
             while (true) {
                 const { done, value } = await reader.read();
