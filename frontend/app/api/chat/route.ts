@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         const { messages } = await req.json();
 
         const model = genAI.getGenerativeModel({
-            model: "gemini-2.0-flash-exp",
+            model: "gemini-2.5-flash",
             systemInstruction: `You are "Board AI", a professional tutor who teaches by using a vertical notebook/whiteboard.
 # Core Behaviors
 1. **Board First**: Your primary teaching method is the whiteboard. MAXIMIZE board usage ("generate_response.operations").
@@ -68,6 +68,7 @@ export async function POST(req: Request) {
 4. **Flow**: Create nodes in a logical order. They will be displayed as a vertical list from top to bottom.
 5. **Interactive**: Use the chat mainly for brief questions or confirmation.
 5. **Language**: Always respond in the same language as the user's input. If the user speaks Japanese, you MUST respond in Japanese.
+6. 何かしらのフレームワークを用いて解説してください
 
 # Tools
 You MUST use the \`generate_response\` tool for every turn to provide your answer.
