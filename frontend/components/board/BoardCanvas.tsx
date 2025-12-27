@@ -64,7 +64,9 @@ export const BoardCanvas = forwardRef<BoardCanvasRef, BoardCanvasProps>(({
     onSuggestedQuestionClick = () => { },
     isLoading = false
 }, ref) => {
-    const { nodes } = useBoardStore();
+    const { getNodes, rooms, currentRoomId } = useBoardStore();
+    // Re-render when rooms or currentRoomId changes
+    const nodes = currentRoomId && rooms[currentRoomId] ? rooms[currentRoomId].nodes : [];
     const groupedNodes = useMemo(() => groupNodesByTurn(nodes), [nodes]);
     const groupRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 

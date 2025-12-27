@@ -1,13 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useBoardStore } from './use-board-store';
+import { useChatStore, Message } from './use-chat-store';
 
-export type Message = {
-    id: string;
-    role: 'user' | 'assistant';
-    content: string;
-    parts?: any[];
-    chatTurnId?: string; // Links to board content
-};
+// Re-export Message type for compatibility
+export type { Message } from './use-chat-store';
 
 // Helper to upload file and get URI
 async function uploadFile(file: File): Promise<{ fileData: { fileUri: string; mimeType: string } }> {
@@ -33,10 +29,18 @@ async function uploadFile(file: File): Promise<{ fileData: { fileUri: string; mi
 }
 
 export const useChatStream = () => {
-    const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
     const { addNode, updateNode, removeNode } = useBoardStore();
+    const {
+        getMessages,
+        addMessage,
+        updateMessage,
+        getSuggestedQuestions,
+        setSuggestedQuestions
+    } = useChatStore();
+
+    const messages = getMessages();
+    const suggestedQuestions = getSuggestedQuestions();
 
     const sendMessage = async (input: string, files: File[] = []) => {
         if ((!input.trim() && files.length === 0) || isLoading) return;
@@ -57,24 +61,23 @@ export const useChatStream = () => {
         try {
             // Process files if any
             if (files.length > 0) {
-                // Upload all files first
                 const fileParts = await Promise.all(
                     files.map(file => uploadFile(file))
                 );
-
                 userMessage.parts = [
                     ...fileParts,
                     { text: input }
                 ];
             }
 
-            setMessages(prev => [...prev, userMessage]);
+            addMessage(userMessage);
 
+            const currentMessages = getMessages();
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages: [...messages, userMessage].map(m => {
+                    messages: currentMessages.map(m => {
                         if (m.parts) {
                             return { role: m.role, parts: m.parts };
                         }
@@ -91,8 +94,8 @@ export const useChatStream = () => {
             let aiContent = "";
             let toolArgs: any = null;
 
-            // Prepare placeholder AI message with chatTurnId
-            setMessages(prev => [...prev, { id: aiMessageId, role: 'assistant', content: '', chatTurnId: chatTurnId }]);
+            // Add placeholder AI message
+            addMessage({ id: aiMessageId, role: 'assistant', content: '', chatTurnId: chatTurnId });
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -107,22 +110,15 @@ export const useChatStream = () => {
 
                         if (data.type === 'text') {
                             aiContent += data.content;
-                            // Update UI
-                            setMessages(prev => prev.map(m =>
-                                m.id === aiMessageId ? { ...m, content: aiContent } : m
-                            ));
+                            updateMessage(aiMessageId, { content: aiContent });
                         } else if (data.type === 'tool_call' && data.toolName === 'generate_response') {
                             toolArgs = data.args;
 
-                            // If comment exists, use it as content
                             if (toolArgs.comment) {
                                 aiContent = toolArgs.comment;
-                                setMessages(prev => prev.map(m =>
-                                    m.id === aiMessageId ? { ...m, content: aiContent } : m
-                                ));
+                                updateMessage(aiMessageId, { content: aiContent });
                             }
 
-                            // Execute operations immediately
                             if (toolArgs.operations && Array.isArray(toolArgs.operations)) {
                                 toolArgs.operations.forEach((op: any) => {
                                     const { action, node } = op;
@@ -143,7 +139,6 @@ export const useChatStream = () => {
                                 });
                             }
 
-                            // Handle suggested questions
                             if (toolArgs.suggestedQuestions && Array.isArray(toolArgs.suggestedQuestions)) {
                                 setSuggestedQuestions(toolArgs.suggestedQuestions);
                             }
@@ -156,7 +151,7 @@ export const useChatStream = () => {
 
         } catch (error) {
             console.error('Chat error:', error);
-            setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: 'Connection failed.' }]);
+            addMessage({ id: Date.now().toString(), role: 'assistant', content: 'Connection failed.' });
         } finally {
             setIsLoading(false);
         }

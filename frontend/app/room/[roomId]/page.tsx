@@ -1,22 +1,34 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { BoardCanvas, BoardCanvasRef } from '@/components/board/BoardCanvas';
 import { ChatPanel } from '@/components/chat/ChatPanel';
 import { useBoardStore } from '@/hooks/use-board-store';
 import { useChatStream } from '@/hooks/use-chat-stream';
+import { useChatStore } from '@/hooks/use-chat-store';
 import { useParams } from 'next/navigation';
 
 export default function RoomPage() {
-    const { reset } = useBoardStore();
+    const [mounted, setMounted] = useState(false);
+    const { setCurrentRoom: setBoardRoom } = useBoardStore();
+    const { setCurrentRoom: setChatRoom } = useChatStore();
     const params = useParams();
+    const roomId = params.roomId as string;
     const { messages, isLoading, suggestedQuestions, sendMessage } = useChatStream();
     const boardRef = useRef<BoardCanvasRef>(null);
 
-    // Reset board state when entering a new room
+    // Handle hydration - only render content after mount
     useEffect(() => {
-        reset();
-    }, [reset, params.roomId]);
+        setMounted(true);
+    }, []);
+
+    // Set current room for both stores when entering
+    useEffect(() => {
+        if (roomId && mounted) {
+            setBoardRoom(roomId);
+            setChatRoom(roomId);
+        }
+    }, [roomId, mounted, setBoardRoom, setChatRoom]);
 
     const handleSuggestedQuestionClick = (question: string) => {
         sendMessage(question);
@@ -25,6 +37,17 @@ export default function RoomPage() {
     const handleMessageClick = useCallback((chatTurnId: string) => {
         boardRef.current?.scrollToGroup(chatTurnId);
     }, []);
+
+    // Prevent hydration mismatch by showing loading state until mounted
+    if (!mounted) {
+        return (
+            <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-neutral-950">
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="text-neutral-400 animate-pulse">Loading...</div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen w-screen overflow-hidden">
