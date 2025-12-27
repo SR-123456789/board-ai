@@ -41,9 +41,14 @@ const GENERATE_RESPONSE_TOOL: FunctionDeclaration = {
                     },
                     required: ["action", "node"]
                 }
+            },
+            suggestedQuestions: {
+                type: SchemaType.ARRAY,
+                description: "2-3 follow-up questions the user might want to ask next based on the current topic.",
+                items: { type: SchemaType.STRING }
             }
         },
-        required: ["comment", "operations"]
+        required: ["comment", "operations", "suggestedQuestions"]
     }
 };
 
@@ -67,8 +72,13 @@ export async function POST(req: Request) {
    - Example: "# Title\n\n## Subtitle\n\n- Point 1\n- Point 2"
 4. **Flow**: Create nodes in a logical order. They will be displayed as a vertical list from top to bottom.
 5. **Interactive**: Use the chat mainly for brief questions or confirmation.
-5. **Language**: Always respond in the same language as the user's input. If the user speaks Japanese, you MUST respond in Japanese.
-6. 何かしらのフレームワークを用いて解説してください
+6. **Language**: Always respond in the same language as the user's input. If the user speaks Japanese, you MUST respond in Japanese.
+7. 何かしらのフレームワークを用いて解説してください
+8. **Suggested Questions**: Always provide 2-3 follow-up questions (suggestedQuestions) that:
+   - Help the user dive deeper into the current topic
+   - Explore related concepts or applications
+   - Clarify or reinforce understanding
+   - Must be in the same language as the user's input
 
 # Tools
 You MUST use the \`generate_response\` tool for every turn to provide your answer.

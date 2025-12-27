@@ -115,10 +115,19 @@ export async function POST(req: Request) {
                         if (functionCalls?.length) {
                             for (const call of functionCalls) {
                                 if (call.name === 'generate_response') {
+                                    // Add framework-specific suggested questions
+                                    const args = {
+                                        ...call.args,
+                                        suggestedQuestions: [
+                                            "この理論が成り立たない反例はありますか？",
+                                            "実際の場面でどう応用できますか？",
+                                            "この理論の前提をもっと詳しく教えて"
+                                        ]
+                                    };
                                     controller.enqueue(encoder.encode(JSON.stringify({
                                         type: 'tool_call',
                                         toolName: 'generate_response',
-                                        args: call.args
+                                        args: args
                                     }) + '\n'));
                                 }
                             }

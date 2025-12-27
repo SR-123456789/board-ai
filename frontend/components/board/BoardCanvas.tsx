@@ -4,8 +4,19 @@ import React from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { useBoardStore } from '@/hooks/use-board-store';
 import { BoardNode } from './BoardNode';
+import { SuggestedQuestions } from './SuggestedQuestions';
 
-export const BoardCanvas = () => {
+interface BoardCanvasProps {
+    suggestedQuestions?: string[];
+    onSuggestedQuestionClick?: (question: string) => void;
+    isLoading?: boolean;
+}
+
+export const BoardCanvas: React.FC<BoardCanvasProps> = ({
+    suggestedQuestions = [],
+    onSuggestedQuestionClick = () => { },
+    isLoading = false
+}) => {
     const { nodes } = useBoardStore();
 
     return (
@@ -17,11 +28,18 @@ export const BoardCanvas = () => {
                         <p className="text-sm">Ask a question to start your notebook.</p>
                     </div>
                 ) : (
-                    nodes.map((node) => (
-                        <div key={node.id} className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <BoardNode node={node} />
-                        </div>
-                    ))
+                    <>
+                        {nodes.map((node) => (
+                            <div key={node.id} className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <BoardNode node={node} />
+                            </div>
+                        ))}
+                        <SuggestedQuestions
+                            questions={suggestedQuestions}
+                            onQuestionClick={onSuggestedQuestionClick}
+                            isLoading={isLoading}
+                        />
+                    </>
                 )}
             </div>
         </div>

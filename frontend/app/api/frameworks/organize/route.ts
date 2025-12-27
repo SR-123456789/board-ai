@@ -129,10 +129,19 @@ export async function POST(req: Request) {
                         if (functionCalls?.length) {
                             for (const call of functionCalls) {
                                 if (call.name === 'generate_response') {
+                                    // Add framework-specific suggested questions
+                                    const args = {
+                                        ...call.args,
+                                        suggestedQuestions: [
+                                            "それぞれのグループについて詳しく教えて",
+                                            "どれを使うべきか比較して",
+                                            "一番よく使われるのはどれ？"
+                                        ]
+                                    };
                                     controller.enqueue(encoder.encode(JSON.stringify({
                                         type: 'tool_call',
                                         toolName: 'generate_response',
-                                        args: call.args
+                                        args: args
                                     }) + '\n'));
                                 }
                             }

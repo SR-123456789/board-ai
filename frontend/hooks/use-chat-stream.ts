@@ -34,12 +34,14 @@ async function uploadFile(file: File): Promise<{ fileData: { fileUri: string; mi
 export const useChatStream = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
     const { addNode, updateNode, removeNode } = useBoardStore();
 
     const sendMessage = async (input: string, files: File[] = []) => {
         if ((!input.trim() && files.length === 0) || isLoading) return;
 
         setIsLoading(true);
+        setSuggestedQuestions([]); // Clear previous suggestions
 
         const id = Date.now().toString();
         let userMessage: Message = {
@@ -135,6 +137,11 @@ export const useChatStream = () => {
                                     }
                                 });
                             }
+
+                            // Handle suggested questions
+                            if (toolArgs.suggestedQuestions && Array.isArray(toolArgs.suggestedQuestions)) {
+                                setSuggestedQuestions(toolArgs.suggestedQuestions);
+                            }
                         }
                     } catch (err) {
                         console.error('JSON Parse Error:', err, line);
@@ -153,6 +160,7 @@ export const useChatStream = () => {
     return {
         messages,
         isLoading,
+        suggestedQuestions,
         sendMessage
     };
 };

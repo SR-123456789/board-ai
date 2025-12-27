@@ -2,12 +2,21 @@
 
 import React, { useRef, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
-import { useChatStream } from '@/hooks/use-chat-stream';
+import { Message } from '@/hooks/use-chat-stream';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './MultimediaChatInput';
 
-export const ChatPanel = () => {
-    const { messages, isLoading, sendMessage } = useChatStream();
+interface ChatPanelProps {
+    messages: Message[];
+    isLoading: boolean;
+    onSend: (input: string, files?: File[]) => void;
+}
+
+export const ChatPanel: React.FC<ChatPanelProps> = ({
+    messages,
+    isLoading,
+    onSend
+}) => {
     const bottomRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll to bottom when messages change
@@ -16,7 +25,7 @@ export const ChatPanel = () => {
     }, [messages]);
 
     const handleSend = (content: string, files: File[]) => {
-        sendMessage(content, files);
+        onSend(content, files);
     };
 
     return (
