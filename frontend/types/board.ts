@@ -17,6 +17,8 @@ export interface BoardNode {
         backgroundColor?: string;
         fontSize?: string;
     };
+    createdAt?: number; // Timestamp when node was created
+    chatTurnId?: string; // Groups nodes created in the same chat turn
     createdBy: 'user' | 'ai';
     canvasId?: string; // If we support multiple canvases later
 }

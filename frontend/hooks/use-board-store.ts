@@ -25,7 +25,7 @@ export const useBoardStore = create<BoardStore>()(
                 set((state) => ({
                     nodes: [
                         ...state.nodes,
-                        { ...node, id: uuidv4() } as BoardNode,
+                        { ...node, id: uuidv4(), createdAt: Date.now() } as BoardNode,
                     ],
                     lastUpdated: Date.now(),
                 })),

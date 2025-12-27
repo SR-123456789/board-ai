@@ -43,7 +43,10 @@ export const useChatStream = () => {
         setIsLoading(true);
         setSuggestedQuestions([]); // Clear previous suggestions
 
-        const id = Date.now().toString();
+        // Generate a unique ID for this chat turn
+        const chatTurnId = Date.now().toString();
+
+        const id = chatTurnId;
         let userMessage: Message = {
             id,
             role: 'user',
@@ -129,6 +132,7 @@ export const useChatStream = () => {
                                             content: node.content || '',
                                             style: node.style,
                                             createdBy: 'ai',
+                                            chatTurnId: chatTurnId,
                                         });
                                     } else if (action === 'update') {
                                         if (node.id) updateNode(node.id, node);
