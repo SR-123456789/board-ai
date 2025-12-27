@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Sparkles } from 'lucide-react';
 import { Message } from '@/hooks/use-chat-stream';
 import { ChatMessage } from './ChatMessage';
-import { ChatInput } from './MultimediaChatInput';
+import { ChatInput, ChatInputRef } from './MultimediaChatInput';
 
 interface ChatPanelProps {
     messages: Message[];
@@ -13,13 +13,24 @@ interface ChatPanelProps {
     onMessageClick?: (chatTurnId: string) => void;
 }
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({
+export interface ChatPanelRef {
+    setInputValue: (value: string) => void;
+}
+
+export const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({
     messages,
     isLoading,
     onSend,
     onMessageClick
-}) => {
+}, ref) => {
     const bottomRef = useRef<HTMLDivElement>(null);
+    const chatInputRef = useRef<ChatInputRef>(null);
+
+    useImperativeHandle(ref, () => ({
+        setInputValue: (value: string) => {
+            chatInputRef.current?.setInputValue(value);
+        }
+    }), []);
 
     // Auto-scroll to bottom when messages change
     useEffect(() => {
@@ -64,7 +75,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             </div>
 
             {/* Input */}
-            <ChatInput onSend={handleSend} isLoading={isLoading} />
+            <ChatInput ref={chatInputRef} onSend={handleSend} isLoading={isLoading} />
         </div>
     );
-};
+});
+
+ChatPanel.displayName = 'ChatPanel';

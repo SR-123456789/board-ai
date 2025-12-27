@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { BoardCanvas, BoardCanvasRef } from '@/components/board/BoardCanvas';
-import { ChatPanel } from '@/components/chat/ChatPanel';
+import { ChatPanel, ChatPanelRef } from '@/components/chat/ChatPanel';
+import { SelectionPopup } from '@/components/board/SelectionPopup';
 import { useBoardStore } from '@/hooks/use-board-store';
 import { useChatStream } from '@/hooks/use-chat-stream';
 import { useChatStore } from '@/hooks/use-chat-store';
@@ -16,6 +17,7 @@ export default function RoomPage() {
     const roomId = params.roomId as string;
     const { messages, isLoading, suggestedQuestions, sendMessage } = useChatStream();
     const boardRef = useRef<BoardCanvasRef>(null);
+    const chatPanelRef = useRef<ChatPanelRef>(null);
 
     // Handle hydration - only render content after mount
     useEffect(() => {
@@ -38,6 +40,15 @@ export default function RoomPage() {
         boardRef.current?.scrollToGroup(chatTurnId);
     }, []);
 
+    // Handle text selection actions
+    const handleAskAboutText = useCallback((text: string) => {
+        sendMessage(`${text}について教えて`);
+    }, [sendMessage]);
+
+    const handleInsertToChat = useCallback((text: string) => {
+        chatPanelRef.current?.setInputValue(text);
+    }, []);
+
     // Prevent hydration mismatch by showing loading state until mounted
     if (!mounted) {
         return (
@@ -51,6 +62,9 @@ export default function RoomPage() {
 
     return (
         <div className="flex h-screen w-screen overflow-hidden">
+            {/* Selection Popup for text actions */}
+            <SelectionPopup onAsk={handleAskAboutText} onInsert={handleInsertToChat} />
+
             {/* Left: Board (takes remaining space) */}
             <div className="flex-1 relative">
                 <BoardCanvas
@@ -64,6 +78,7 @@ export default function RoomPage() {
             {/* Right: Chat Panel (fixed width for now, or resizable) */}
             <div className="w-[400px] h-full shrink-0 shadow-xl z-10 border-l border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
                 <ChatPanel
+                    ref={chatPanelRef}
                     messages={messages}
                     isLoading={isLoading}
                     onSend={sendMessage}

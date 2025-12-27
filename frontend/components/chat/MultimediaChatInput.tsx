@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
 import { Send, Paperclip, X, FileText, Presentation } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -9,10 +9,27 @@ interface ChatInputProps {
     isLoading: boolean;
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading }) => {
+export interface ChatInputRef {
+    setInputValue: (value: string) => void;
+    focus: () => void;
+}
+
+export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({ onSend, isLoading }, ref) => {
     const [input, setInput] = useState('');
     const [files, setFiles] = useState<File[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    useImperativeHandle(ref, () => ({
+        setInputValue: (value: string) => {
+            setInput(value);
+            // Focus the textarea after setting value
+            setTimeout(() => textareaRef.current?.focus(), 0);
+        },
+        focus: () => {
+            textareaRef.current?.focus();
+        }
+    }), []);
 
     const handleSubmit = (e?: React.FormEvent) => {
         e?.preventDefault();
@@ -95,6 +112,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading }) => {
 
                 <div className="flex-1 relative">
                     <TextareaAutosize
+                        ref={textareaRef}
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
@@ -116,4 +134,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading }) => {
             </form>
         </div>
     );
-};
+});
+
+ChatInput.displayName = 'ChatInput';
