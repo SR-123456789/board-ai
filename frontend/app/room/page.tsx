@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useChatStore } from '@/hooks/use-chat-store';
+import { useChatStore, RoomMode } from '@/hooks/use-chat-store';
 import { useBoardStore } from '@/hooks/use-board-store';
-import { Plus, MessageSquare, Clock, Trash2, ArrowLeft } from 'lucide-react';
+import { useManagedStore } from '@/hooks/use-managed-store';
+import { Plus, MessageSquare, Clock, Trash2, ArrowLeft, X, BookOpen, Sparkles } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -25,63 +26,67 @@ interface RoomInfo {
     lastMessage?: string;
     messageCount: number;
     lastUpdated: number;
+    mode?: RoomMode;
 }
 
 export default function RoomListPage() {
     const [mounted, setMounted] = useState(false);
     const [rooms, setRooms] = useState<RoomInfo[]>([]);
+    const [showModeDialog, setShowModeDialog] = useState(false);
     const router = useRouter();
     const chatStore = useChatStore();
     const boardStore = useBoardStore();
+    const managedStore = useManagedStore();
 
     useEffect(() => {
         setMounted(true);
     }, []);
 
+    // Build room list from stored data
     useEffect(() => {
         if (!mounted) return;
 
-        // Get all rooms from chat store
         const chatRooms = chatStore.rooms;
         const boardRooms = boardStore.rooms;
 
-        // Combine room IDs from both stores
         const allRoomIds = new Set([
             ...Object.keys(chatRooms),
-            ...Object.keys(boardRooms)
+            ...Object.keys(boardRooms),
         ]);
 
-        const roomInfos: RoomInfo[] = Array.from(allRoomIds).map(roomId => {
+        const roomInfos: RoomInfo[] = Array.from(allRoomIds).map((roomId) => {
             const chatRoom = chatRooms[roomId];
             const boardRoom = boardRooms[roomId];
-
             const messages = chatRoom?.messages || [];
-            const lastMessage = messages.length > 0
-                ? messages[messages.length - 1].content?.substring(0, 50)
-                : undefined;
-
-            const lastUpdated = Math.max(
-                chatRoom?.messages?.[chatRoom.messages.length - 1]?.id
-                    ? parseInt(chatRoom.messages[chatRoom.messages.length - 1].id)
-                    : 0,
-                boardRoom?.lastUpdated || 0
-            );
+            const lastMessage = messages.filter(m => m.role === 'assistant').pop()?.content || messages.pop()?.content;
 
             return {
                 id: roomId,
-                lastMessage: lastMessage || '(empty)',
+                lastMessage: lastMessage?.substring(0, 60) || 'メッセージなし',
                 messageCount: messages.length,
-                lastUpdated
+                lastUpdated: Math.max(
+                    messages[messages.length - 1]?.chatTurnId ? Date.now() : 0,
+                    boardRoom?.lastUpdated || 0
+                ),
+                mode: chatRoom?.mode || 'normal',
             };
-        });
+        }).sort((a, b) => b.lastUpdated - a.lastUpdated);
 
-        // Sort by last updated, newest first
-        roomInfos.sort((a, b) => b.lastUpdated - a.lastUpdated);
         setRooms(roomInfos);
     }, [mounted, chatStore.rooms, boardStore.rooms]);
 
-    const handleNewRoom = () => {
+    const handleCreateRoom = (mode: RoomMode) => {
         const newRoomId = uuidv4().substring(0, 8);
+
+        // Set mode for the new room
+        chatStore.setCurrentRoom(newRoomId);
+        chatStore.setMode(newRoomId, mode);
+
+        if (mode === 'managed') {
+            managedStore.initRoom(newRoomId);
+        }
+
+        setShowModeDialog(false);
         router.push(`/room/${newRoomId}`);
     };
 
@@ -92,7 +97,7 @@ export default function RoomListPage() {
         if (confirm('このルームを削除しますか？')) {
             chatStore.clearRoom(roomId);
             boardStore.clearRoom(roomId);
-            // Re-fetch rooms
+            managedStore.clearRoom(roomId);
             setRooms(prev => prev.filter(r => r.id !== roomId));
         }
     };
@@ -106,11 +111,11 @@ export default function RoomListPage() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-neutral-950 p-8">
+        <div className="min-h-screen bg-slate-50 dark:bg-neutral-950 p-4 md:p-8">
             <div className="max-w-2xl mx-auto">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between mb-6 md:mb-8">
+                    <div className="flex items-center gap-3 md:gap-4">
                         <Link
                             href="/"
                             className="w-9 h-9 flex items-center justify-center bg-white dark:bg-neutral-800 rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-all"
@@ -119,16 +124,16 @@ export default function RoomListPage() {
                             <ArrowLeft className="w-4 h-4" />
                         </Link>
                         <div>
-                            <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
+                            <h1 className="text-xl md:text-2xl font-bold text-neutral-900 dark:text-white">
                                 ルーム一覧
                             </h1>
-                            <p className="text-sm text-neutral-500 mt-1">
+                            <p className="text-xs md:text-sm text-neutral-500 mt-1">
                                 {rooms.length}件のルーム
                             </p>
                         </div>
                     </div>
                     <button
-                        onClick={handleNewRoom}
+                        onClick={() => setShowModeDialog(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
                     >
                         <Plus className="w-4 h-4" />
@@ -180,6 +185,60 @@ export default function RoomListPage() {
                     </div>
                 )}
             </div>
+
+            {/* Mode Selection Dialog */}
+            {showModeDialog && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-neutral-900 rounded-2xl max-w-md w-full shadow-2xl">
+                        <div className="p-6 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+                            <h2 className="text-lg font-bold text-neutral-900 dark:text-white">モードを選択</h2>
+                            <button
+                                onClick={() => setShowModeDialog(false)}
+                                className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+                            >
+                                <X className="w-5 h-5 text-neutral-500" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            {/* Normal Mode */}
+                            <button
+                                onClick={() => handleCreateRoom('normal')}
+                                className="w-full p-4 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all text-left group"
+                            >
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+                                        <Sparkles className="w-6 h-6" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-bold text-neutral-900 dark:text-white mb-1">通常モード</h3>
+                                        <p className="text-sm text-neutral-500 leading-relaxed">
+                                            質問に対してAIがホワイトボードを用いて解説します。
+                                        </p>
+                                    </div>
+                                </div>
+                            </button>
+
+                            {/* Managed Teacher Mode */}
+                            <button
+                                onClick={() => handleCreateRoom('managed')}
+                                className="w-full p-4 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all text-left group"
+                            >
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
+                                        <BookOpen className="w-6 h-6" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-bold text-neutral-900 dark:text-white mb-1">家庭教師モード</h3>
+                                        <p className="text-sm text-neutral-500 leading-relaxed">
+                                            目標を聞き、ロードマップを作成し、ロードマップに沿って解説します。
+                                        </p>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

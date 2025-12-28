@@ -12,6 +12,8 @@ interface BoardCanvasProps {
     suggestedQuestions?: string[];
     onSuggestedQuestionClick?: (question: string) => void;
     isLoading?: boolean;
+    onQuizNext?: (isCorrect: boolean) => void;
+    currentSectionId?: string; // Currently in-progress section for managed mode
 }
 
 export interface BoardCanvasRef {
@@ -62,7 +64,9 @@ const groupNodesByTurn = (nodes: BoardNodeType[]) => {
 export const BoardCanvas = forwardRef<BoardCanvasRef, BoardCanvasProps>(({
     suggestedQuestions = [],
     onSuggestedQuestionClick = () => { },
-    isLoading = false
+    isLoading = false,
+    onQuizNext,
+    currentSectionId
 }, ref) => {
     const { getNodes, rooms, currentRoomId } = useBoardStore();
     const [hasScrolled, setHasScrolled] = useState(false);
@@ -96,8 +100,8 @@ export const BoardCanvas = forwardRef<BoardCanvasRef, BoardCanvasProps>(({
     }), []);
 
     return (
-        <div className="w-full h-full bg-slate-50 dark:bg-neutral-950 overflow-y-auto p-8 custom-scrollbar">
-            <div className="max-w-4xl mx-auto flex flex-col gap-4 pb-20">
+        <div className="w-full h-full bg-slate-50 dark:bg-neutral-950 overflow-y-auto px-2 py-4 md:p-8 custom-scrollbar">
+            <div className="max-w-4xl mx-auto flex flex-col gap-3 md:gap-4 pb-20">
                 {nodes.length === 0 ? (
                     <div className="flex flex-col items-center justify-center min-h-[50vh] text-neutral-400 dark:text-neutral-500">
                         <p className="text-xl font-medium">Board is empty.</p>
@@ -132,7 +136,12 @@ export const BoardCanvas = forwardRef<BoardCanvasRef, BoardCanvasProps>(({
                                         </span>
                                         <div className="flex flex-col gap-4">
                                             {group.nodes.map((node) => (
-                                                <BoardNode key={node.id} node={node} />
+                                                <BoardNode
+                                                    key={node.id}
+                                                    node={node}
+                                                    onQuizNext={onQuizNext}
+                                                    currentSectionId={currentSectionId}
+                                                />
                                             ))}
                                         </div>
                                     </div>

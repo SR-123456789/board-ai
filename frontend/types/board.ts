@@ -1,4 +1,13 @@
-export type NodeType = 'text' | 'sticky' | 'equation' | 'problem' | 'feedback' | 'worksheet';
+export type NodeType = 'text' | 'sticky' | 'equation' | 'problem' | 'feedback' | 'worksheet' | 'quiz';
+
+export interface PracticeQuestion {
+    question: string;
+    type: 'choice' | 'freeform';
+    options?: string[];
+    correctAnswer?: number;
+    keywords?: string[];
+    explanation?: string;
+}
 
 export interface BoardNode {
     id: string;
@@ -21,6 +30,8 @@ export interface BoardNode {
     chatTurnId?: string; // Groups nodes created in the same chat turn
     createdBy: 'user' | 'ai';
     canvasId?: string; // If we support multiple canvases later
+    quizData?: PracticeQuestion; // For quiz type nodes
+    sectionId?: string; // For managed mode: identifies which section this quiz belongs to
 }
 
 export interface BoardState {

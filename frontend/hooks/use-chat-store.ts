@@ -9,9 +9,12 @@ export type Message = {
     chatTurnId?: string;
 };
 
+export type RoomMode = 'normal' | 'managed';
+
 interface RoomData {
     messages: Message[];
     suggestedQuestions: string[];
+    mode: RoomMode;
 }
 
 interface ChatStore {
@@ -19,18 +22,21 @@ interface ChatStore {
     currentRoomId: string | null;
 
     // Actions
-    setCurrentRoom: (roomId: string) => void;
+    setCurrentRoom: (roomId: string, mode?: RoomMode) => void;
     getMessages: () => Message[];
     addMessage: (message: Message) => void;
     updateMessage: (messageId: string, updates: Partial<Message>) => void;
     setSuggestedQuestions: (questions: string[]) => void;
     getSuggestedQuestions: () => string[];
+    getMode: (roomId?: string) => RoomMode;
+    setMode: (roomId: string, mode: RoomMode) => void;
     clearRoom: (roomId: string) => void;
 }
 
 const emptyRoomData: RoomData = {
     messages: [],
     suggestedQuestions: [],
+    mode: 'normal',
 };
 
 export const useChatStore = create<ChatStore>()(
@@ -121,6 +127,26 @@ export const useChatStore = create<ChatStore>()(
                 const { rooms, currentRoomId } = get();
                 if (!currentRoomId || !rooms[currentRoomId]) return [];
                 return rooms[currentRoomId].suggestedQuestions;
+            },
+
+            getMode: (roomId?: string) => {
+                const { rooms, currentRoomId } = get();
+                const targetRoomId = roomId || currentRoomId;
+                if (!targetRoomId || !rooms[targetRoomId]) return 'normal';
+                return rooms[targetRoomId].mode || 'normal';
+            },
+
+            setMode: (roomId: string, mode: RoomMode) => {
+                set((state) => {
+                    const room = state.rooms[roomId];
+                    if (!room) return state;
+                    return {
+                        rooms: {
+                            ...state.rooms,
+                            [roomId]: { ...room, mode },
+                        },
+                    };
+                });
             },
 
             clearRoom: (roomId: string) => {
