@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
+import Link from 'next/link';
 import { BoardCanvas, BoardCanvasRef } from '@/components/board/BoardCanvas';
 import { ChatPanel, ChatPanelRef } from '@/components/chat/ChatPanel';
 import { SelectionPopup } from '@/components/board/SelectionPopup';
@@ -8,6 +9,7 @@ import { useBoardStore } from '@/hooks/use-board-store';
 import { useChatStream } from '@/hooks/use-chat-stream';
 import { useChatStore } from '@/hooks/use-chat-store';
 import { useParams } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 
 export default function RoomPage() {
     const [mounted, setMounted] = useState(false);
@@ -67,6 +69,15 @@ export default function RoomPage() {
 
             {/* Left: Board (takes remaining space) */}
             <div className="flex-1 relative">
+                {/* Back Button */}
+                <Link
+                    href="/room"
+                    className="absolute top-4 left-4 z-20 w-9 h-9 flex items-center justify-center bg-white/80 dark:bg-neutral-800/80 backdrop-blur-sm rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-white dark:hover:bg-neutral-800 transition-all shadow-sm"
+                    title="ルーム一覧へ戻る"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                </Link>
+
                 <BoardCanvas
                     ref={boardRef}
                     suggestedQuestions={suggestedQuestions}
