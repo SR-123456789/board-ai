@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useChatStore } from '@/hooks/use-chat-store';
 import { useBoardStore } from '@/hooks/use-board-store';
-import { Plus, MessageSquare, Clock, Trash2 } from 'lucide-react';
+import { Plus, MessageSquare, Clock, Trash2, ArrowLeft } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -109,13 +109,22 @@ export default function RoomListPage() {
             <div className="max-w-2xl mx-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
-                            ルーム一覧
-                        </h1>
-                        <p className="text-sm text-neutral-500 mt-1">
-                            {rooms.length}件のルーム
-                        </p>
+                    <div className="flex items-center gap-4">
+                        <Link
+                            href="/"
+                            className="w-9 h-9 flex items-center justify-center bg-white dark:bg-neutral-800 rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-all"
+                            title="トップへ戻る"
+                        >
+                            <ArrowLeft className="w-4 h-4" />
+                        </Link>
+                        <div>
+                            <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
+                                ルーム一覧
+                            </h1>
+                            <p className="text-sm text-neutral-500 mt-1">
+                                {rooms.length}件のルーム
+                            </p>
+                        </div>
                     </div>
                     <button
                         onClick={handleNewRoom}
