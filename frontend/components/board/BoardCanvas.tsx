@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useMemo, useRef, forwardRef, useImperativeHandle, useEffect, useState } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { useBoardStore } from '@/hooks/use-board-store';
 import { BoardNode } from './BoardNode';
@@ -65,6 +65,7 @@ export const BoardCanvas = forwardRef<BoardCanvasRef, BoardCanvasProps>(({
     isLoading = false
 }, ref) => {
     const { getNodes, rooms, currentRoomId } = useBoardStore();
+    const [hasScrolled, setHasScrolled] = useState(false);
     // Re-render when rooms or currentRoomId changes
     const nodes = currentRoomId && rooms[currentRoomId] ? rooms[currentRoomId].nodes : [];
     const groupedNodes = useMemo(() => groupNodesByTurn(nodes), [nodes]);
@@ -76,6 +77,18 @@ export const BoardCanvas = forwardRef<BoardCanvasRef, BoardCanvasProps>(({
             element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     };
+
+    // Scroll to last group on initial mount
+    useEffect(() => {
+        if (!hasScrolled && groupedNodes.length > 0) {
+            const lastGroup = groupedNodes[groupedNodes.length - 1];
+            const element = groupRefs.current[lastGroup.turnId];
+            if (element) {
+                element.scrollIntoView({ behavior: 'instant', block: 'start' });
+                setHasScrolled(true);
+            }
+        }
+    }, [groupedNodes, hasScrolled]);
 
     // Expose scrollToGroup to parent via ref
     useImperativeHandle(ref, () => ({
