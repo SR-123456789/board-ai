@@ -34,6 +34,19 @@ export default function RoomPage() {
         }
     }, [roomId, mounted, setBoardRoom, setChatRoom]);
 
+    // Update page title with last AI message
+    useEffect(() => {
+        if (!mounted) return;
+
+        const lastAiMessage = [...messages].reverse().find(m => m.role === 'assistant' && m.content);
+        if (lastAiMessage?.content) {
+            const title = lastAiMessage.content.substring(0, 50) + (lastAiMessage.content.length > 50 ? '...' : '');
+            document.title = `${title} | Board AI`;
+        } else {
+            document.title = 'Board AI';
+        }
+    }, [messages, mounted]);
+
     const handleSuggestedQuestionClick = (question: string) => {
         sendMessage(question);
     };
