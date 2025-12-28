@@ -24,6 +24,7 @@ interface BoardStore {
     removeNode: (id: string) => void;
     setNodes: (nodes: BoardNode[]) => void;
     reset: () => void;
+    clearRoom: (roomId: string) => void;
 }
 
 const emptyRoomData: RoomBoardData = {
@@ -140,6 +141,14 @@ export const useBoardStore = create<BoardStore>()(
                             ...state.rooms,
                             [roomId]: { ...emptyRoomData },
                         },
+                    };
+                }),
+
+            clearRoom: (roomId: string) =>
+                set((state) => {
+                    const { [roomId]: _, ...remainingRooms } = state.rooms;
+                    return {
+                        rooms: remainingRooms,
                     };
                 }),
         }),

@@ -124,12 +124,12 @@ export const useChatStore = create<ChatStore>()(
             },
 
             clearRoom: (roomId: string) => {
-                set((state) => ({
-                    rooms: {
-                        ...state.rooms,
-                        [roomId]: { ...emptyRoomData },
-                    },
-                }));
+                set((state) => {
+                    const { [roomId]: _, ...remainingRooms } = state.rooms;
+                    return {
+                        rooms: remainingRooms,
+                    };
+                });
             },
         }),
         {

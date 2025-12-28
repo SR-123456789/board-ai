@@ -91,6 +91,7 @@ export default function RoomListPage() {
 
         if (confirm('このルームを削除しますか？')) {
             chatStore.clearRoom(roomId);
+            boardStore.clearRoom(roomId);
             // Re-fetch rooms
             setRooms(prev => prev.filter(r => r.id !== roomId));
         }
@@ -153,12 +154,9 @@ export default function RoomListPage() {
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
-                                            <span className="font-mono text-sm text-neutral-500 dark:text-neutral-400">
-                                                #{room.id}
-                                            </span>
                                             <span className="text-xs text-neutral-400 flex items-center gap-1">
                                                 <MessageSquare className="w-3 h-3" />
-                                                {room.messageCount}
+                                                {room.messageCount}件
                                             </span>
                                         </div>
                                         <p className="text-neutral-700 dark:text-neutral-300 truncate">
