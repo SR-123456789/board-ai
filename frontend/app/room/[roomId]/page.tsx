@@ -12,6 +12,7 @@ import { useManagedChat } from '@/hooks/use-managed-chat';
 import { useManagedStore } from '@/hooks/use-managed-store';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
+import { createClient } from '@/utils/supabase/client';
 
 export default function RoomPage() {
     const [mounted, setMounted] = useState(false);
@@ -92,6 +93,40 @@ export default function RoomPage() {
         }
     }, [mounted, roomId, mode, initialMessageSent, addMessage]);
 
+    // Verify login via Supabase client to ensure we have a session
+    const [user, setUser] = useState<any>(null);
+    useEffect(() => {
+        const supabase = createClient();
+        const checkUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            setUser(user);
+        };
+        checkUser();
+    }, []);
+
+    // Sending pending message if any (Guest -> Login -> Auto Send)
+    useEffect(() => {
+        const sendPending = async () => {
+            if (!mounted || !user) return; // Wait for mount and user check
+
+            const pending = localStorage.getItem('pendingMessage');
+            if (pending) {
+                try {
+                    const { input } = JSON.parse(pending);
+                    if (input && sendMessage) {
+                        // Clear immediate to prevent loop if error
+                        localStorage.removeItem('pendingMessage');
+                        await sendMessage(input);
+                    }
+                } catch (e) {
+                    console.error("Failed to parse pending message", e);
+                    localStorage.removeItem('pendingMessage');
+                }
+            }
+        };
+        sendPending();
+    }, [mounted, user, sendMessage]);
+
     // Update page title with last AI message
     useEffect(() => {
         if (!mounted) return;
@@ -106,7 +141,7 @@ export default function RoomPage() {
     }, [messages, mounted]);
 
     const handleSuggestedQuestionClick = useCallback((question: string) => {
-        chatPanelRef.current?.setInputValue(question);
+        chatPanelRef.current?.triggerSend(question);
         // On mobile, switch to chat tab
         setMobileTab('chat');
     }, []);
@@ -121,7 +156,7 @@ export default function RoomPage() {
 
     // Handle text selection actions
     const handleAskAboutText = useCallback((text: string) => {
-        chatPanelRef.current?.setInputValue(`「${text}」について教えてください`);
+        chatPanelRef.current?.triggerSend(`「${text}」について教えてください`);
         setMobileTab('chat');
     }, []);
 

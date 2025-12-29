@@ -7,6 +7,7 @@ import { ChatMessage } from './ChatMessage';
 import { ChatInput, ChatInputRef } from './MultimediaChatInput';
 import { RoadmapPanel } from './RoadmapPanel';
 import { useChatStore } from '@/hooks/use-chat-store';
+import { TokenUsageIndicator } from './TokenUsageIndicator';
 
 interface ChatPanelProps {
     messages: Message[];
@@ -18,6 +19,7 @@ interface ChatPanelProps {
 
 export interface ChatPanelRef {
     setInputValue: (value: string) => void;
+    triggerSend: (value: string) => void;
 }
 
 export const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({
@@ -31,11 +33,34 @@ export const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({
     const chatInputRef = useRef<ChatInputRef>(null);
     const mode = useChatStore((s) => roomId ? s.rooms[roomId]?.mode : 'normal') || 'normal';
 
+    const [usage, setUsage] = React.useState<{ plan: string; tokenUsage: number; maxTokens: number } | null>(null);
+
     useImperativeHandle(ref, () => ({
         setInputValue: (value: string) => {
             chatInputRef.current?.setInputValue(value);
+        },
+        triggerSend: (value: string) => {
+            chatInputRef.current?.triggerSend(value);
         }
     }), []);
+
+    // Fetch usage
+    useEffect(() => {
+        const fetchUsage = async () => {
+            try {
+                const res = await fetch('/api/me');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.user) {
+                        setUsage(data.user);
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch usage", e);
+            }
+        };
+        fetchUsage();
+    }, [isLoading]); // Refetch when chat finishes (loading -> false)
 
     // Auto-scroll to bottom when messages change
     useEffect(() => {
@@ -55,15 +80,20 @@ export const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({
                 ) : (
                     <Sparkles className="w-5 h-5 text-yellow-500 fill-yellow-500" />
                 )}
-                <h2 className="font-semibold text-lg tracking-tight">
-                    {mode === 'managed' ? 'Managed Teacher' : 'Board AI'}
-                </h2>
+                <div>
+                    <h2 className="font-semibold text-lg tracking-tight leading-none">
+                        {mode === 'managed' ? 'Managed Teacher' : 'Board AI'}
+                    </h2>
+                </div>
                 {mode === 'managed' && (
-                    <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-xs rounded-full font-medium">
+                    <span className="ml-2 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-xs rounded-full font-medium">
                         学習モード
                     </span>
                 )}
-                <div className="ml-auto text-xs text-neutral-400">v1.0</div>
+
+                <div className="ml-auto flex items-center gap-2">
+                    <TokenUsageIndicator usage={usage} />
+                </div>
             </div>
 
             {/* Roadmap Panel (only for managed mode) */}

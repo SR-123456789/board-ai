@@ -1,4 +1,9 @@
 import { GoogleGenerativeAI, SchemaType, FunctionDeclaration, FunctionCallingMode } from '@google/generative-ai';
+import { createClient } from '@/utils/supabase/server';
+import { UserService } from '@/lib/services/userService';
+import { ChatService } from '@/lib/services/chatService';
+import { RoomService } from '@/lib/services/roomService';
+import prisma from '@/lib/prisma';
 
 // Allow streaming responses up to 60 seconds
 export const maxDuration = 60;
@@ -58,7 +63,52 @@ export async function POST(req: Request) {
     }
 
     try {
-        const { messages } = await req.json();
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        const userId = user?.id;
+        if (!userId) {
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+        }
+
+        const { messages, roomId } = await req.json();
+
+        // 1. Check if Room Exists; if not, create it (Guest Mode -> First Message)
+        if (roomId) {
+            const existingRoom = await RoomService.getRoom(roomId, userId);
+            if (!existingRoom) {
+                // Double check if room exists but owned by someone else?
+                // getRoom filters by userId.
+                // Let's rely on Prisma create failing if ID exists.
+                // Or better, try checking only by ID to avoid claiming someone else's room.
+                // Actually getRoom does strict check.
+                // If it doesn't exist for USER, it might be new.
+                // Let's try to create.
+                try {
+                    await RoomService.createRoom(userId, 'Untitled Room', roomId);
+                } catch (e) {
+                    // Ignore if already exists (race condition or re-login)
+                    console.log("Room might already exist or error creating", e);
+                }
+            }
+        }
+
+        // 2. Check Token Limits
+        const { allowed, error } = await UserService.canConsumeTokens(userId, 100);
+        if (!allowed) {
+            return new Response(JSON.stringify({ error }), { status: 403 });
+        }
+
+        // 3. Persist User Message
+        const lastMessage = messages[messages.length - 1];
+        if (roomId && userId) {
+            await ChatService.addMessage(roomId, userId, {
+                id: lastMessage.id || crypto.randomUUID(),
+                role: 'user',
+                content: lastMessage.content,
+                parts: lastMessage.parts
+            } as any);
+        }
 
         const model = genAI.getGenerativeModel({
             model: "gemini-2.5-flash",
@@ -107,54 +157,65 @@ This tool puts text in the chat and updates the board.
             }
         });
 
-        // Convert messages to Google SDK format
-        // history expects { role: 'user' | 'model', parts: [...] }
         const history = messages.slice(0, -1).map((m: any) => {
-            // Check if client already sent 'parts' (new format)
-            if (m.parts) {
-                return {
-                    role: m.role === 'user' ? 'user' : 'model',
-                    parts: m.parts
-                };
+            const role = m.role === 'user' ? 'user' : 'model';
+
+            // If parts exist, filter to only valid Google AI SDK parts (text, fileData)
+            if (m.parts && Array.isArray(m.parts)) {
+                const validParts = m.parts
+                    .filter((p: any) => p.text !== undefined || p.fileData !== undefined)
+                    .map((p: any) => {
+                        if (p.text !== undefined) return { text: p.text };
+                        if (p.fileData) return { fileData: p.fileData };
+                        return null;
+                    })
+                    .filter(Boolean);
+
+                // If no valid parts remain, use content as text
+                if (validParts.length === 0) {
+                    return {
+                        role,
+                        parts: [{ text: m.content || '' }]
+                    };
+                }
+
+                return { role, parts: validParts };
             }
-            // Fallback for old format or simple text
+
+            // Fallback to content
             return {
-                role: m.role === 'user' ? 'user' : 'model',
+                role,
                 parts: [{ text: m.content || '' }]
             };
         });
 
-        const lastMessage = messages[messages.length - 1];
-        // The client now sends the last message with 'parts' if it has images
-        // We need to pass the parts to sendMessageStream if available, or just text
+        const userMessageContent = lastMessage.parts ? lastMessage.parts : lastMessage.content;
 
         const chat = model.startChat({
             history: history,
         });
 
-        // If lastMessage has parts (multimodal), use that. Otherwise use content.
-        const userMessageContent = lastMessage.parts ? lastMessage.parts : lastMessage.content;
-
-        console.log("--- Sending to Gemini ---");
-        console.log("User Message Content Structure:", JSON.stringify(userMessageContent, (key, value) => {
-            if (key === 'data') return '[BASE64_DATA_TRUNCATED]';
-            return value;
-        }, 2));
-
         const result = await chat.sendMessageStream(userMessageContent);
+
+        // Usage Tracking Accumulator
+        let promptedTokenCount = (await chat.getHistory()).reduce((acc, m) => acc + (m.parts[0].text?.length || 0), 0) / 4;
 
         // Create a streaming response
         const stream = new ReadableStream({
             async start(controller) {
                 const encoder = new TextEncoder();
+                let fullResponseText = "";
+                let toolCallData: any = null;
+
                 try {
                     for await (const chunk of result.stream) {
-                        // Check for function calls
                         const functionCalls = chunk.functionCalls();
                         if (functionCalls && functionCalls.length > 0) {
                             for (const call of functionCalls) {
                                 if (call.name === 'generate_response') {
                                     const args = call.args;
+                                    toolCallData = args;
+
                                     const data = JSON.stringify({
                                         type: 'tool_call',
                                         toolName: 'generate_response',
@@ -165,9 +226,9 @@ This tool puts text in the chat and updates the board.
                             }
                         }
 
-                        // Check for text (should be empty if tool is forced, but usually model explains reasoning if not forced)
                         const text = chunk.text();
                         if (text) {
+                            fullResponseText += text;
                             const data = JSON.stringify({
                                 type: 'text',
                                 content: text
@@ -175,6 +236,22 @@ This tool puts text in the chat and updates the board.
                             controller.enqueue(encoder.encode(data + '\n'));
                         }
                     }
+
+                    if (roomId && userId) {
+                        const contentToSave = toolCallData ? toolCallData.comment : fullResponseText;
+                        const partsToSave = toolCallData ? [{ text: contentToSave }, { tool_use: toolCallData }] : undefined;
+
+                        await ChatService.addMessage(roomId, userId, {
+                            id: crypto.randomUUID(),
+                            role: 'assistant',
+                            content: contentToSave || '',
+                            parts: partsToSave
+                        } as any);
+
+                        const outputTokens = (fullResponseText.length + JSON.stringify(toolCallData || {}).length) / 4;
+                        await UserService.consumTokens(userId, Math.ceil(promptedTokenCount + outputTokens));
+                    }
+
                     controller.close();
                 } catch (err) {
                     console.error('Streaming error:', err);

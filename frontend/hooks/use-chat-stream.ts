@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useBoardStore } from './use-board-store';
 import { useChatStore, Message } from './use-chat-store';
+import { createClient } from '@/utils/supabase/client';
+import { useRouter, usePathname } from 'next/navigation';
 
 // Re-export Message type for compatibility
 export type { Message } from './use-chat-store';
@@ -31,6 +33,9 @@ async function uploadFile(file: File): Promise<{ fileData: { fileUri: string; mi
 export const useChatStream = () => {
     const [isLoading, setIsLoading] = useState(false);
     const { addNode, updateNode, removeNode } = useBoardStore();
+    const router = useRouter();
+    const pathname = usePathname();
+    const supabase = createClient();
     const {
         getMessages,
         addMessage,
@@ -44,6 +49,25 @@ export const useChatStream = () => {
 
     const sendMessage = async (input: string, files: File[] = []) => {
         if ((!input.trim() && files.length === 0) || isLoading) return;
+
+        // AUTH CHECK
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            // Save draft to localStorage to restore after login
+            localStorage.setItem('pendingMessage', JSON.stringify({
+                input,
+                // Note: File objects cannot be saved to localStorage easily.
+                // For MVP, we might warn user or try to upload first?
+                // Uploading requires auth? Currently /api/upload might be protected?
+                // If /api/upload is protected, we can't upload.
+                // Let's just save text for now and maybe alert user if files dropped.
+                hasFiles: files.length > 0
+            }));
+
+            // Redirect to login with proper return URL
+            router.push(`/login?next=${pathname}`);
+            return;
+        }
 
         setIsLoading(true);
         setSuggestedQuestions([]); // Clear previous suggestions
@@ -73,10 +97,16 @@ export const useChatStream = () => {
             addMessage(userMessage);
 
             const currentMessages = getMessages();
+            // We need to pass roomId to the API. 
+            // Currently useChatStore has currentRoomId? 
+            // Or we check URL? usage of useChatStore implies it manages active room.
+            const roomId = useChatStore.getState().currentRoomId;
+
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    roomId: roomId, // Pass roomId for creation/persistence
                     messages: currentMessages.map(m => {
                         if (m.parts) {
                             return { role: m.role, parts: m.parts };

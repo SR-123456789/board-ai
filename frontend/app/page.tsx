@@ -3,6 +3,9 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { v4 as uuidv4 } from 'uuid';
+import { UserMenu } from '@/components/UserMenu';
+import { createClient } from '@/utils/supabase/client';
+import { useEffect, useState } from 'react';
 import {
   Sparkles,
   PenTool,
@@ -51,14 +54,41 @@ const colorClasses: { [key: string]: { bg: string; text: string; border: string 
 
 export default function LandingPage() {
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    checkUser();
+  }, [supabase]);
 
   const handleStart = () => {
-    const roomId = uuidv4();
-    router.push(`/room/${roomId}`);
+    // Guest mode: Create a random room ID and go there immediately.
+    // Login will be required when they try to "Save" or "Send Message".
+    const newRoomId = uuidv4().substring(0, 8);
+    router.push(`/room/${newRoomId}`);
   };
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white">
+      {/* Header/Nav */}
+      <nav className="fixed top-0 left-0 right-0 p-4 flex justify-between items-center z-50 pointer-events-none">
+        <div className="pointer-events-auto">
+          {/* Logo placeholder */}
+        </div>
+        <div className="pointer-events-auto">
+          {user ? (
+            <UserMenu />
+          ) : (
+            <Link href="/login" className="px-4 py-2 bg-white dark:bg-neutral-800 rounded-full shadow-sm text-sm font-medium hover:bg-neutral-50 transition-colors">
+              ログイン
+            </Link>
+          )}
+        </div>
+      </nav>
 
       {/* Hero Section */}
       <section className="relative min-h-[85vh] flex flex-col items-center justify-center px-6 py-20 overflow-hidden">
@@ -95,16 +125,18 @@ export default function LandingPage() {
               onClick={handleStart}
               className="group inline-flex items-center gap-3 px-8 py-4 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-lg font-bold rounded-full hover:scale-105 active:scale-100 transition-transform shadow-xl shadow-neutral-900/20"
             >
-              無料で始める
+              {user ? 'ルーム一覧へ' : '無料で始める'}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
-            <Link
-              href="/room"
-              className="inline-flex items-center gap-2 px-6 py-3 text-neutral-600 dark:text-neutral-400 text-sm font-medium hover:text-neutral-900 dark:hover:text-white transition-colors"
-            >
-              <FolderOpen className="w-4 h-4" />
-              ルーム一覧を見る
-            </Link>
+            {user && (
+              <Link
+                href="/room"
+                className="inline-flex items-center gap-2 px-6 py-3 text-neutral-600 dark:text-neutral-400 text-sm font-medium hover:text-neutral-900 dark:hover:text-white transition-colors"
+              >
+                <FolderOpen className="w-4 h-4" />
+                ルーム一覧を見る
+              </Link>
+            )}
           </div>
         </div>
       </section>

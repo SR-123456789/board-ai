@@ -12,6 +12,7 @@ interface ChatInputProps {
 export interface ChatInputRef {
     setInputValue: (value: string) => void;
     focus: () => void;
+    triggerSend: (value: string) => void;
 }
 
 export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({ onSend, isLoading }, ref) => {
@@ -28,8 +29,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({ onSend, isL
         },
         focus: () => {
             textareaRef.current?.focus();
+        },
+        triggerSend: (value: string) => {
+            if (value.trim() && !isLoading) {
+                onSend(value.trim(), []);
+            }
         }
-    }), []);
+    }), [isLoading, onSend]);
 
     const handleSubmit = (e?: React.FormEvent) => {
         e?.preventDefault();

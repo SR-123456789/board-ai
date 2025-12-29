@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { UserMenu } from '@/components/UserMenu';
 import { useChatStore, RoomMode } from '@/hooks/use-chat-store';
 import { useBoardStore } from '@/hooks/use-board-store';
 import { useManagedStore } from '@/hooks/use-managed-store';
@@ -40,40 +41,27 @@ export default function RoomListPage() {
 
     useEffect(() => {
         setMounted(true);
+        fetchRooms();
     }, []);
 
-    // Build room list from stored data
-    useEffect(() => {
-        if (!mounted) return;
-
-        const chatRooms = chatStore.rooms;
-        const boardRooms = boardStore.rooms;
-
-        const allRoomIds = new Set([
-            ...Object.keys(chatRooms),
-            ...Object.keys(boardRooms),
-        ]);
-
-        const roomInfos: RoomInfo[] = Array.from(allRoomIds).map((roomId) => {
-            const chatRoom = chatRooms[roomId];
-            const boardRoom = boardRooms[roomId];
-            const messages = chatRoom?.messages || [];
-            const lastMessage = messages.filter(m => m.role === 'assistant').pop()?.content || messages.pop()?.content;
-
-            return {
-                id: roomId,
-                lastMessage: lastMessage?.substring(0, 60) || 'メッセージなし',
-                messageCount: messages.length,
-                lastUpdated: Math.max(
-                    messages[messages.length - 1]?.chatTurnId ? Date.now() : 0,
-                    boardRoom?.lastUpdated || 0
-                ),
-                mode: chatRoom?.mode || 'normal',
-            };
-        }).sort((a, b) => b.lastUpdated - a.lastUpdated);
-
-        setRooms(roomInfos);
-    }, [mounted, chatStore.rooms, boardStore.rooms]);
+    const fetchRooms = async () => {
+        try {
+            const res = await fetch('/api/rooms');
+            if (res.ok) {
+                const data = await res.json();
+                const apiRooms = (data.rooms || []).map((room: any) => ({
+                    id: room.id,
+                    lastMessage: room.messages?.[room.messages.length - 1]?.content.substring(0, 60) || 'メッセージなし',
+                    messageCount: room.messages?.length || 0,
+                    lastUpdated: new Date(room.updatedAt).getTime(),
+                    mode: room.managedState ? 'managed' : 'normal'
+                }));
+                setRooms(apiRooms.sort((a: RoomInfo, b: RoomInfo) => b.lastUpdated - a.lastUpdated));
+            }
+        } catch (e) {
+            console.error("Failed to fetch rooms", e);
+        }
+    };
 
     const handleCreateRoom = (mode: RoomMode) => {
         const newRoomId = uuidv4().substring(0, 8);
@@ -132,13 +120,16 @@ export default function RoomListPage() {
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={() => setShowModeDialog(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                    >
-                        <Plus className="w-4 h-4" />
-                        新規作成
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <UserMenu />
+                        <button
+                            onClick={() => setShowModeDialog(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                        >
+                            <Plus className="w-4 h-4" />
+                            新規作成
+                        </button>
+                    </div>
                 </div>
 
                 {/* Room List */}
