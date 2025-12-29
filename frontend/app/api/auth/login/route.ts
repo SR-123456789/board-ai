@@ -2,19 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
 export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const next = searchParams.get("next") ?? "/";
-    const provider = searchParams.get("provider") ?? "google";
+    const requestUrl = new URL(request.url);
+    const next = requestUrl.searchParams.get("next") ?? "/";
+    const provider = requestUrl.searchParams.get("provider") ?? "google";
 
-    // Get the base URL from env or construct from request
-    let baseUrl = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_SITE_URL;
-
-    if (!baseUrl) {
-        // Construct from request - use x-forwarded-proto for protocol detection
-        const proto = request.headers.get("x-forwarded-proto") || "http";
-        const host = request.headers.get("host") || "localhost:3160";
-        baseUrl = `${proto}://${host}`;
-    }
+    // Get the base URL - prioritize env vars, fallback to request origin
+    const baseUrl = process.env.FRONTEND_URL ||
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        requestUrl.origin;
 
     const redirectTo = `${baseUrl}/auth/callback?next=${encodeURIComponent(next)}`;
 
