@@ -29,7 +29,9 @@ function LoginContent() {
     const handleGoogleLogin = async () => {
         try {
             setLoading(true);
-            const redirectTo = new URL(`${window.location.origin}/auth/callback`);
+            // Use NEXT_PUBLIC_SITE_URL for production, fallback to window.location.origin
+            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+            const redirectTo = new URL(`${siteUrl}/auth/callback`);
             if (next) {
                 redirectTo.searchParams.set('next', next);
             }
@@ -76,7 +78,9 @@ function LoginContent() {
         setLoading(true);
         setMessage(null);
         try {
-            const redirectTo = new URL(`${window.location.origin}/auth/callback`);
+            // Use NEXT_PUBLIC_SITE_URL for production, fallback to window.location.origin
+            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+            const redirectTo = new URL(`${siteUrl}/auth/callback`);
             if (next) {
                 redirectTo.searchParams.set('next', next);
             }
