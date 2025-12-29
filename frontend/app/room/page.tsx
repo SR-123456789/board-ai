@@ -71,7 +71,7 @@ export default function RoomListPage() {
         chatStore.setMode(newRoomId, mode);
 
         if (mode === 'managed') {
-            managedStore.initRoom(newRoomId);
+            managedStore.initializeRoom(newRoomId);
         }
 
         setShowModeDialog(false);

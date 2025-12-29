@@ -3,23 +3,28 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { useBoardStore } from './use-board-store';
 import { v4 as uuidv4 } from 'uuid';
 
-export type Phase = 'hearing' | 'proposal' | 'learning' | 'review';
+export type Phase = 'hearing' | 'hearing_level' | 'hearing_goal' | 'generating_roadmap' | 'proposal' | 'learning' | 'review' | 'completed';
 
 export interface Section {
+    id: string;
     title: string;
     description: string;
     goal: string;
     keywords: string[];
+    status?: 'pending' | 'in_progress' | 'completed' | 'skipped';
+    importance?: 'normal' | 'focus' | 'skip';
 }
 
 export interface Unit {
+    id: string;
     title: string;
     sections: Section[];
 }
 
 export interface Roadmap {
-    title: string;
+    title?: string;
     goal: string;
+    currentLevel?: string;
     units: Unit[];
 }
 
@@ -52,16 +57,26 @@ interface ManagedStore {
     getCurrentUnitIndex: () => number;
     getCurrentSectionIndex: () => number;
 
-    // Actions
+    // Actions (legacy - uses currentRoomId)
     setPhase: (phase: Phase) => void;
     setRoadmap: (roadmap: Roadmap) => void;
     updateHearingData: (data: Partial<HearingData>) => void;
     getHearingData: () => HearingData;
 
+    // Actions (new - with roomId)
+    setHearingData: (roomId: string, data: Partial<HearingData>) => void;
+    setPhaseForRoom: (roomId: string, phase: Phase) => void;
+    setRoadmapForRoom: (roomId: string, roadmap: Roadmap) => void;
+    advanceToNextSection: (roomId: string) => boolean;
+    updateSectionStatus: (roomId: string, unitIdx: number, sectionIdx: number, status: Section['status']) => void;
+
     nextSection: () => void;
     prevSection: () => void;
     isFirstSection: () => boolean;
     isLastSection: () => boolean;
+
+    goToSection: (roomId: string, unitIdx: number, sectionIdx: number) => void;
+    updateSectionImportance: (roomId: string, unitIdx: number, sectionIdx: number, importance: Section['importance']) => void;
 
     reset: () => void;
     clearRoom: (roomId: string) => void;
@@ -235,6 +250,115 @@ export const useManagedStore = create<ManagedStore>()(
                 return rooms[currentRoomId]?.hearingData || {};
             },
 
+            // New roomId-based methods for use-managed-chat
+            setHearingData: (roomId, data) =>
+                set((state) => {
+                    const room = state.rooms[roomId];
+                    if (!room) return state;
+
+                    const newState = {
+                        ...room,
+                        hearingData: { ...room.hearingData, ...data },
+                        lastUpdated: Date.now()
+                    };
+                    saveToServer(roomId, newState);
+
+                    return {
+                        rooms: { ...state.rooms, [roomId]: newState }
+                    };
+                }),
+
+            setPhaseForRoom: (roomId, phase) =>
+                set((state) => {
+                    const room = state.rooms[roomId];
+                    if (!room) return state;
+
+                    const newState = { ...room, phase, lastUpdated: Date.now() };
+                    saveToServer(roomId, newState);
+
+                    return {
+                        rooms: { ...state.rooms, [roomId]: newState }
+                    };
+                }),
+
+            setRoadmapForRoom: (roomId, roadmap) =>
+                set((state) => {
+                    const room = state.rooms[roomId];
+                    if (!room) return state;
+
+                    const newState = {
+                        ...room,
+                        roadmap,
+                        phase: 'learning' as Phase,
+                        lastUpdated: Date.now()
+                    };
+                    saveToServer(roomId, newState);
+
+                    return {
+                        rooms: { ...state.rooms, [roomId]: newState }
+                    };
+                }),
+
+            advanceToNextSection: (roomId) => {
+                const state = get();
+                const room = state.rooms[roomId];
+                if (!room || !room.roadmap) return false;
+
+                const units = room.roadmap.units;
+                let unitIdx = room.currentUnitIndex;
+                let sectionIdx = room.currentSectionIndex + 1;
+
+                // Check if we need to advance to next unit
+                if (sectionIdx >= units[unitIdx].sections.length) {
+                    unitIdx++;
+                    sectionIdx = 0;
+                }
+
+                // Check if we've completed all
+                if (unitIdx >= units.length) {
+                    return false;
+                }
+
+                const newState = {
+                    ...room,
+                    currentUnitIndex: unitIdx,
+                    currentSectionIndex: sectionIdx,
+                    lastUpdated: Date.now()
+                };
+                saveToServer(roomId, newState);
+
+                set((s) => ({
+                    rooms: { ...s.rooms, [roomId]: newState }
+                }));
+
+                return true;
+            },
+
+            updateSectionStatus: (roomId, unitIdx, sectionIdx, status) =>
+                set((state) => {
+                    const room = state.rooms[roomId];
+                    if (!room || !room.roadmap) return state;
+
+                    const newUnits = [...room.roadmap.units];
+                    const newSections = [...newUnits[unitIdx].sections];
+                    newSections[sectionIdx] = {
+                        ...newSections[sectionIdx],
+                        status
+                    };
+                    newUnits[unitIdx] = { ...newUnits[unitIdx], sections: newSections };
+
+                    const newState = {
+                        ...room,
+                        roadmap: { ...room.roadmap, units: newUnits },
+                        lastUpdated: Date.now()
+                    };
+                    saveToServer(roomId, newState);
+
+                    return {
+                        rooms: { ...state.rooms, [roomId]: newState }
+                    };
+                }),
+
             nextSection: () =>
                 set((state) => {
                     const roomId = state.currentRoomId;
@@ -332,6 +456,49 @@ export const useManagedStore = create<ManagedStore>()(
                         [roomId]: { ...initialRoomState }
                     }
                 })),
+
+            goToSection: (roomId, unitIdx, sectionIdx) =>
+                set((state) => {
+                    const room = state.rooms[roomId];
+                    if (!room) return state;
+
+                    const newState = {
+                        ...room,
+                        currentUnitIndex: unitIdx,
+                        currentSectionIndex: sectionIdx,
+                        lastUpdated: Date.now()
+                    };
+                    saveToServer(roomId, newState);
+
+                    return {
+                        rooms: { ...state.rooms, [roomId]: newState }
+                    };
+                }),
+
+            updateSectionImportance: (roomId, unitIdx, sectionIdx, importance) =>
+                set((state) => {
+                    const room = state.rooms[roomId];
+                    if (!room || !room.roadmap) return state;
+
+                    const newUnits = [...room.roadmap.units];
+                    const newSections = [...newUnits[unitIdx].sections];
+                    newSections[sectionIdx] = {
+                        ...newSections[sectionIdx],
+                        importance
+                    };
+                    newUnits[unitIdx] = { ...newUnits[unitIdx], sections: newSections };
+
+                    const newState = {
+                        ...room,
+                        roadmap: { ...room.roadmap, units: newUnits },
+                        lastUpdated: Date.now()
+                    };
+                    saveToServer(roomId, newState);
+
+                    return {
+                        rooms: { ...state.rooms, [roomId]: newState }
+                    };
+                }),
         }),
         {
             name: 'managed-storage',

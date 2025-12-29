@@ -17,7 +17,7 @@ export function useManagedChat(roomId: string): UseManagedChatReturn {
     const [isLoading, setIsLoading] = useState(false);
 
     const managedState = useManagedStore((s) => s.rooms[roomId]);
-    const { setPhase, setHearingData, setRoadmap, advanceToNextSection, updateSectionStatus } = useManagedStore();
+    const { setPhaseForRoom, setHearingData, setRoadmapForRoom, advanceToNextSection, updateSectionStatus } = useManagedStore();
     const { addMessage, getMessages } = useChatStore();
     const { addNode } = useBoardStore();
 
@@ -87,7 +87,7 @@ export function useManagedChat(roomId: string): UseManagedChatReturn {
             if (phase === 'hearing_level') {
                 // ユーザーがレベル+目標を回答した（最初のメッセージ）
                 setHearingData(roomId, { level: content });
-                setPhase(roomId, 'hearing_goal');
+                setPhaseForRoom(roomId, 'hearing_goal');
 
                 // 目標を質問（ユーザーの回答をコンテキストとして渡す）
                 const result = await callHearingGoal(content);
@@ -100,7 +100,7 @@ export function useManagedChat(roomId: string): UseManagedChatReturn {
             } else if (phase === 'hearing_goal') {
                 // ユーザーが目標を回答した
                 setHearingData(roomId, { goal: content });
-                setPhase(roomId, 'generating_roadmap');
+                setPhaseForRoom(roomId, 'generating_roadmap');
 
                 // ロードマップを生成
                 const result = await callGenerateRoadmap(
@@ -124,7 +124,7 @@ export function useManagedChat(roomId: string): UseManagedChatReturn {
                         })),
                     };
 
-                    setRoadmap(roomId, roadmapData);
+                    setRoadmapForRoom(roomId, roadmapData);
 
                     // 最初の節を開始
                     updateSectionStatus(roomId, 0, 0, 'in_progress');
@@ -173,7 +173,7 @@ export function useManagedChat(roomId: string): UseManagedChatReturn {
         } finally {
             setIsLoading(false);
         }
-    }, [managedState, roomId, addUserMessage, addAIMessage, callHearingGoal, callGenerateRoadmap, setPhase, setHearingData, setRoadmap, advanceToNextSection, updateSectionStatus, addNode]);
+    }, [managedState, roomId, addUserMessage, addAIMessage, callHearingGoal, callGenerateRoadmap, setPhaseForRoom, setHearingData, setRoadmapForRoom, advanceToNextSection, updateSectionStatus, addNode]);
 
     const teachCurrentSection = async (roomId: string, roadmap: Roadmap, unitIdx: number, sectionIdx: number) => {
         const unit = roadmap.units[unitIdx];
@@ -183,7 +183,7 @@ export function useManagedChat(roomId: string): UseManagedChatReturn {
             unit.title,
             section.title,
             roadmap.goal,
-            roadmap.currentLevel
+            roadmap.currentLevel || ''
         );
 
         if (result.type === 'tool_call' && result.tool === 'teach_section') {
@@ -251,7 +251,7 @@ export function useManagedChat(roomId: string): UseManagedChatReturn {
                     newState.currentSectionIndex
                 );
             } else {
-                setPhase(roomId, 'completed');
+                setPhaseForRoom(roomId, 'completed');
                 addAIMessage('🎉 おめでとうございます！すべての学習を完了しました！');
             }
         } catch (error) {
@@ -260,7 +260,7 @@ export function useManagedChat(roomId: string): UseManagedChatReturn {
         } finally {
             setIsLoading(false);
         }
-    }, [managedState, roomId, advanceToNextSection, setPhase, addAIMessage]);
+    }, [managedState, roomId, advanceToNextSection, setPhaseForRoom, addAIMessage]);
 
     return {
         sendMessage,
