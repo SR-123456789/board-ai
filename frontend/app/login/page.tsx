@@ -29,23 +29,11 @@ function LoginContent() {
     const handleGoogleLogin = async () => {
         try {
             setLoading(true);
-            // Use NEXT_PUBLIC_SITE_URL for production, fallback to window.location.origin
-            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-            const redirectTo = new URL(`${siteUrl}/auth/callback`);
-            if (next) {
-                redirectTo.searchParams.set('next', next);
-            }
-
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: redirectTo.toString(),
-                },
-            });
-            if (error) throw error;
+            // Use server-side endpoint to ensure correct redirect URL
+            const loginUrl = `/api/auth/login?provider=google&next=${encodeURIComponent(next)}`;
+            window.location.href = loginUrl;
         } catch (error: any) {
             setMessage({ type: 'error', text: error.message });
-        } finally {
             setLoading(false);
         }
     };
