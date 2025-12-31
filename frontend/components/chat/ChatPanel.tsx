@@ -73,8 +73,8 @@ export const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({
 
     return (
         <div className="flex flex-col h-full bg-white dark:bg-neutral-900 border-l border-neutral-200 dark:border-neutral-800 font-sans">
-            {/* Header */}
-            <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center gap-2">
+            {/* Header - hidden on mobile, visible on PC */}
+            <div className="hidden md:flex p-4 border-b border-neutral-200 dark:border-neutral-800 items-center gap-2">
                 {mode === 'managed' ? (
                     <BookOpen className="w-5 h-5 text-purple-500" />
                 ) : (
@@ -102,7 +102,7 @@ export const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({
             )}
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            <div className="flex-1 overflow-y-auto p-4 space-y-6 mobile-scroll-container">
                 {messages.length === 0 && (
                     <div className="text-center text-neutral-400 mt-10 text-sm">
                         {mode === 'managed' ? (

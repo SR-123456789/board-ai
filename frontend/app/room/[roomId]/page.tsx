@@ -11,13 +11,15 @@ import { useChatStore } from '@/hooks/use-chat-store';
 import { useManagedChat } from '@/hooks/use-managed-chat';
 import { useManagedStore } from '@/hooks/use-managed-store';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, MessageSquare } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Sparkles } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import { UserMenu } from '@/components/UserMenu';
 
 export default function RoomPage() {
     const [mounted, setMounted] = useState(false);
     const [initialMessageSent, setInitialMessageSent] = useState(false);
     const [mobileTab, setMobileTab] = useState<'chat' | 'board'>('board'); // Mobile: board is main view
+
     const { setCurrentRoom: setBoardRoom } = useBoardStore();
     const { setCurrentRoom: setChatRoom, getMode, addMessage } = useChatStore();
     const params = useParams();
@@ -165,6 +167,34 @@ export default function RoomPage() {
         setMobileTab('chat');
     }, []);
 
+    // Auto-scroll to hide Safari URL bar on mobile load
+    useEffect(() => {
+        if (mounted && window.innerWidth < 768) {
+            setTimeout(() => {
+                window.scrollTo(0, 1);
+            }, 100);
+        }
+    }, [mounted]);
+
+    // Lock body scroll when mobile chat is open to prevent background scrolling
+    useEffect(() => {
+        if (!mounted || window.innerWidth >= 768) return;
+
+        if (mobileTab === 'chat') {
+            document.body.style.overflow = 'hidden';
+            // Also lock html to be safe for Safari
+            document.documentElement.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+            document.documentElement.style.overflow = '';
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+            document.documentElement.style.overflow = '';
+        };
+    }, [mobileTab, mounted]);
+
     // Prevent hydration mismatch by showing loading state until mounted
     if (!mounted) {
         return (
@@ -177,7 +207,7 @@ export default function RoomPage() {
     }
 
     return (
-        <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden">
+        <div className="flex flex-col md:flex-row min-h-screen md:h-screen w-full md:w-screen relative md:overflow-hidden">
             {/* Selection Popup for text actions (desktop only) */}
             <div className="hidden md:block">
                 <SelectionPopup onAsk={handleAskAboutText} onInsert={handleInsertToChat} />
@@ -218,22 +248,28 @@ export default function RoomPage() {
             </div>
 
             {/* Mobile Layout: Board main + Bottom Sheet Chat */}
-            <div className="md:hidden flex flex-col h-full w-full relative">
-                {/* Mobile Header */}
-                <div className="flex items-center gap-3 px-4 py-3 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm border-b border-neutral-200 dark:border-neutral-800 z-20">
+            <div className="md:hidden flex flex-col w-full relative">
+                {/* Mobile Header - sticky to ensure it stays visible while scrolling body for URL bar */}
+                <div className="sticky top-0 flex items-center gap-2 px-3 py-2 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-sm border-b border-neutral-200 dark:border-neutral-800 z-40 safe-area-top">
                     <Link
                         href="/room"
                         className="w-8 h-8 flex items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400"
                     >
                         <ArrowLeft className="w-4 h-4" />
                     </Link>
-                    <span className="font-medium text-sm flex-1">
-                        {mode === 'managed' ? '📚 学習モード' : '💬 チャット'}
-                    </span>
+                    <Sparkles className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                    <span className="font-semibold text-sm">Board AI</span>
+                    {mode === 'managed' && (
+                        <span className="px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-xs rounded-full font-medium">
+                            学習
+                        </span>
+                    )}
+                    <div className="flex-1" />
+                    <UserMenu />
                 </div>
 
-                {/* Main Content: Board */}
-                <div className="flex-1 overflow-hidden">
+                {/* Main Content: Board - Allow scrolling but ensure height */}
+                <div className="flex-1 relative z-0 min-h-[85vh]">
                     <BoardCanvas
                         ref={boardRef}
                         suggestedQuestions={suggestedQuestions}
@@ -244,10 +280,10 @@ export default function RoomPage() {
                     />
                 </div>
 
-                {/* Bottom Sheet Chat */}
+                {/* Bottom Sheet Chat - fixed at bottom with higher z-index */}
                 <div
-                    className={`absolute bottom-0 left-0 right-0 bg-white dark:bg-neutral-900 rounded-t-2xl shadow-2xl transition-all duration-300 ease-out z-30 ${mobileTab === 'chat'
-                        ? 'h-[85vh]'
+                    className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-neutral-900 rounded-t-2xl shadow-2xl transition-all duration-300 ease-out z-50 safe-area-bottom overscroll-y-contain ${mobileTab === 'chat'
+                        ? 'h-[85dvh]'
                         : 'h-11'
                         }`}
                 >
@@ -270,7 +306,7 @@ export default function RoomPage() {
                     </button>
 
                     {/* Chat Content */}
-                    <div className={`h-[calc(100%-44px)] ${mobileTab === 'chat' ? 'block' : 'hidden'}`}>
+                    <div className={`h-[calc(100%-44px)] overflow-hidden ${mobileTab === 'chat' ? 'block' : 'hidden'}`}>
                         <ChatPanel
                             ref={chatPanelRef}
                             messages={messages}

@@ -25,3 +25,39 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Mobile Safari URL bar optimization */
+html {
+  height: -webkit-fill-available;
+}
+
+body {
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
+/* Mobile Safari URL bar optimization */
+html {
+  /* Allow scrolling */
+  height: auto;
+  overflow-y: auto;
+}
+
+/* Apply min-height only on mobile to hide URL bar */
+@media (max-width: 768px) {
+  body {
+    /* Make content taller than viewport to allow hiding URL bar */
+    min-height: calc(100vh + 60px);
+    /* Ensure smooth scrolling */
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Safe area padding for notched devices */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
