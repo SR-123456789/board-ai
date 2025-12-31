@@ -22,168 +22,72 @@ export function useManagedChat(roomId: string): UseManagedChatReturn {
     const { addNode } = useBoardStore();
 
     // 各エンドポイントへの直接呼び出し
-    const callHearingGoal = useCallback(async (userLevel: string) => {
+    const callHearingGoal = useCallback(async (userLevel: string, userMessageId: string) => {
         const response = await fetch('/api/managed/hearing-goal', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userLevel }),
+            body: JSON.stringify({ roomId, userLevel, userMessageId }),
         });
         return response.json();
-    }, []);
+    }, [roomId]);
 
-    const callGenerateRoadmap = useCallback(async (currentLevel: string, goal: string) => {
+    const callGenerateRoadmap = useCallback(async (currentLevel: string, goal: string, userMessageId: string) => {
         const response = await fetch('/api/managed/generate-roadmap', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ currentLevel, goal }),
+            body: JSON.stringify({ roomId, currentLevel, goal, userMessageId }),
         });
         return response.json();
-    }, []);
+    }, [roomId]);
 
-    const callTeachSection = useCallback(async (unitTitle: string, sectionTitle: string, goal: string, currentLevel: string) => {
+    const callTeachSection = useCallback(async (unitTitle: string, sectionTitle: string, goal: string, currentLevel: string, userMessageId: string) => {
         const response = await fetch('/api/managed/teach-section', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ unitTitle, sectionTitle, goal, currentLevel }),
+            body: JSON.stringify({ roomId, unitTitle, sectionTitle, goal, currentLevel, userMessageId }),
         });
         return response.json();
-    }, []);
+    }, [roomId]);
 
-    const callAnswerQuestion = useCallback(async (question: string, sectionTitle: string, unitTitle: string, explanation: string) => {
+    const callAnswerQuestion = useCallback(async (question: string, sectionTitle: string, unitTitle: string, explanation: string, userMessageId: string) => {
         const response = await fetch('/api/managed/answer-question', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question, sectionTitle, unitTitle, explanation }),
+            body: JSON.stringify({ roomId, question, sectionTitle, unitTitle, explanation, userMessageId }),
         });
         return response.json();
-    }, []);
+    }, [roomId]);
 
-    const addAIMessage = useCallback((content: string, chatTurnId?: string) => {
+    const addAIMessage = useCallback((content: string, id: string = uuidv4(), chatTurnId?: string) => {
         addMessage({
-            id: uuidv4(),
+            id,
             role: 'assistant',
             content,
             chatTurnId,
-        });
-    }, [addMessage]);
+        }, roomId); // Ensure roomId is passed
+    }, [addMessage, roomId]);
 
-    const addUserMessage = useCallback((content: string) => {
+    const addUserMessage = useCallback((content: string, id: string = uuidv4()) => {
         addMessage({
-            id: uuidv4(),
+            id,
             role: 'user',
             content,
-        });
-    }, [addMessage]);
+        }, roomId); // Ensure roomId is passed
+    }, [addMessage, roomId]);
 
-    const sendMessage = useCallback(async (content: string) => {
-        if (!managedState) return;
-
-        setIsLoading(true);
-        addUserMessage(content);
-
-        try {
-            const phase = managedState.phase;
-
-            if (phase === 'hearing_level') {
-                // ユーザーがレベル+目標を回答した（最初のメッセージ）
-                setHearingData(roomId, { level: content });
-                setPhaseForRoom(roomId, 'hearing_goal');
-
-                // 目標を質問（ユーザーの回答をコンテキストとして渡す）
-                const result = await callHearingGoal(content);
-                if (result.type === 'text' && result.content) {
-                    addAIMessage(result.content);
-                } else {
-                    addAIMessage('なるほど！では、この学習を通じて何ができるようになりたいですか？具体的な目標を教えてください。');
-                }
-
-            } else if (phase === 'hearing_goal') {
-                // ユーザーが目標を回答した
-                setHearingData(roomId, { goal: content });
-                setPhaseForRoom(roomId, 'generating_roadmap');
-
-                // ロードマップを生成
-                const result = await callGenerateRoadmap(
-                    managedState.hearingData.level || '',
-                    content
-                );
-
-                if (result.type === 'tool_call' && result.tool === 'generate_roadmap') {
-                    const roadmapData: Roadmap = {
-                        goal: result.args.goal,
-                        currentLevel: result.args.currentLevel,
-                        units: result.args.units.map((u: any) => ({
-                            id: u.id,
-                            title: u.title,
-                            sections: u.sections.map((s: any) => ({
-                                id: s.id,
-                                title: s.title,
-                                status: 'pending' as const,
-                                importance: 'normal' as const,
-                            })),
-                        })),
-                    };
-
-                    setRoadmapForRoom(roomId, roadmapData);
-
-                    // 最初の節を開始
-                    updateSectionStatus(roomId, 0, 0, 'in_progress');
-
-                    // ロードマップ完了メッセージ
-                    addAIMessage(`📚 学習ロードマップを作成しました！\n\n目標: ${roadmapData.goal}\n\n${roadmapData.units.length}つの単元、合計${roadmapData.units.reduce((s, u) => s + u.sections.length, 0)}つの節で構成されています。\n\nそれでは最初の節「${roadmapData.units[0].sections[0].title}」から始めましょう！`);
-
-                    // 最初の解説を取得
-                    await teachCurrentSection(roomId, roadmapData, 0, 0);
-                }
-
-            } else if (phase === 'learning') {
-                // 学習中 - ユーザーの質問に回答
-                const roadmap = managedState.roadmap!;
-                const currentUnit = roadmap.units[managedState.currentUnitIndex];
-                const currentSection = currentUnit.sections[managedState.currentSectionIndex];
-                const turnId = uuidv4();
-
-                // 質問に回答
-                const result = await callAnswerQuestion(
-                    content,
-                    currentSection.title,
-                    currentUnit.title,
-                    currentSection.title // 実際には解説内容を保存して使うべき
-                );
-
-                if (result.type === 'text' && result.content) {
-                    // ボードに質問への回答を追加
-                    addNode({
-                        type: 'text',
-                        content: `## 💡 質問への回答\n\n**Q: ${content}**\n\n${result.content}`,
-                        chatTurnId: turnId,
-                        createdBy: 'ai',
-                        sectionId: currentSection.id,
-                    });
-
-                    // チャットにも回答を表示
-                    addAIMessage('💡 回答をボードに追加しました！続けて確認問題に回答して「次へ」ボタンで進んでください。', turnId);
-                } else {
-                    addAIMessage('ご質問ありがとうございます！もう少し具体的に教えていただけますか？');
-                }
-            }
-        } catch (error) {
-            console.error('Managed chat error:', error);
-            addAIMessage('エラーが発生しました。もう一度お試しください。');
-        } finally {
-            setIsLoading(false);
-        }
-    }, [managedState, roomId, addUserMessage, addAIMessage, callHearingGoal, callGenerateRoadmap, setPhaseForRoom, setHearingData, setRoadmapForRoom, advanceToNextSection, updateSectionStatus, addNode]);
-
-    const teachCurrentSection = async (roomId: string, roadmap: Roadmap, unitIdx: number, sectionIdx: number) => {
+    const teachCurrentSection = useCallback(async (roomId: string, roadmap: Roadmap, unitIdx: number, sectionIdx: number) => {
         const unit = roadmap.units[unitIdx];
         const section = unit.sections[sectionIdx];
+
+        // Mark as in_progress
+        updateSectionStatus(roomId, unitIdx, sectionIdx, 'in_progress');
 
         const result = await callTeachSection(
             unit.title,
             section.title,
             roadmap.goal,
-            roadmap.currentLevel || ''
+            roadmap.currentLevel || '',
+            uuidv4()
         );
 
         if (result.type === 'tool_call' && result.tool === 'teach_section') {
@@ -218,7 +122,109 @@ export function useManagedChat(roomId: string): UseManagedChatReturn {
             // チャットには短いメッセージのみ
             addAIMessage(chatMessage, turnId);
         }
-    };
+    }, [callTeachSection, addNode, addAIMessage, updateSectionStatus]);
+
+    const sendMessage = useCallback(async (content: string) => {
+        if (!managedState) return;
+
+        setIsLoading(true);
+        const userMessageId = uuidv4();
+        addUserMessage(content, userMessageId);
+
+        try {
+            const phase = managedState.phase;
+
+            if (phase === 'hearing_level' || phase === 'hearing') {
+                // ユーザーがレベル+目標を回答した（最初のメッセージ）
+                setHearingData(roomId, { level: content });
+                setPhaseForRoom(roomId, 'hearing_goal');
+
+                // 目標を質問（ユーザーの回答をコンテキストとして渡す）
+                const result = await callHearingGoal(content, userMessageId);
+                if (result.type === 'text' && result.content) {
+                    addAIMessage(result.content, result.aiMessageId);
+                } else {
+                    addAIMessage('なるほど！では、この学習を通じて何ができるようになりたいですか？具体的な目標を教えてください。');
+                }
+
+            } else if (phase === 'hearing_goal') {
+                // ユーザーが目標を回答した
+                setHearingData(roomId, { goal: content });
+
+                // ロードマップ生成開始
+                setPhaseForRoom(roomId, 'generating_roadmap');
+                addAIMessage('ありがとうございます！学習プランを作成しています...少々お待ちください。');
+
+                const currentLevel = managedState.hearingData.level || '初学者';
+                const result = await callGenerateRoadmap(currentLevel, content, userMessageId);
+
+                if (result.type === 'tool_call' && result.tool === 'generate_roadmap') {
+                    const roadmap = result.args;
+                    setRoadmapForRoom(roomId, roadmap);
+                    setPhaseForRoom(roomId, 'proposal');
+
+                    let message = '学習ロードマップを作成しました！\n\n';
+                    message += `**目標**: ${roadmap.goal}\n`;
+                    message += `**レベル**: ${roadmap.currentLevel}\n\n`;
+                    message += 'この内容で進めてよろしいですか？「はい」と答えるか、修正したい点があれば教えてください。';
+
+                    addAIMessage(message, result.aiMessageId);
+                } else {
+                    addAIMessage('申し訳ありません、ロードマップの作成に失敗しました。もう一度詳しく教えていただけますか？', result.aiMessageId);
+                    setPhaseForRoom(roomId, 'hearing_goal');
+                }
+
+            } else if (phase === 'proposal') {
+                // 提案への返答
+                if (content.includes('はい') || content.includes('OK') || content.includes('大丈夫')) {
+                    setPhaseForRoom(roomId, 'learning');
+                    addAIMessage('では、学習を始めましょう！最初のセクションに進みます。');
+
+                    // 最初のセクションの指導を開始
+                    // 少し待ってから実行（UXのため）
+                    setTimeout(async () => {
+                        if (managedState.roadmap) {
+                            await teachCurrentSection(roomId, managedState.roadmap, 0, 0);
+                        }
+                    }, 1000);
+
+                } else {
+                    // 修正要望
+                    addAIMessage('承知しました。修正したいポイントを具体的に教えてください。');
+                    // Implement modify logic later
+                }
+
+            } else if (phase === 'learning') {
+                // 学習中の質問・回答
+                const unit = managedState.roadmap?.units[managedState.currentUnitIndex];
+                const section = unit?.sections[managedState.currentSectionIndex];
+
+                if (unit && section) {
+                    // 質問かどうか、練習問題の回答かどうか判定が必要
+                    // ここでは単純に「質問・会話」としてAPIに投げる（Answer Question）
+                    const res = await callAnswerQuestion(
+                        content,
+                        section.title,
+                        unit.title,
+                        section.description || '', // Description might be empty if not stored
+                        userMessageId,
+                    );
+
+                    if (res.type === 'text') {
+                        addAIMessage(res.content, res.aiMessageId);
+                    }
+                }
+            }
+
+        } catch (error) {
+            console.error('Unified Chat Error:', error);
+            addAIMessage('申し訳ありません、エラーが発生しました。もう一度お試しください。');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [managedState, roomId, addUserMessage, addAIMessage, callHearingGoal, callGenerateRoadmap, callTeachSection, callAnswerQuestion, setHearingData, setPhaseForRoom, setRoadmapForRoom, addNode, teachCurrentSection]);
+
+
 
     // 次の節へ進む（QuizNodeの「次へ」ボタンから呼ばれる）
     const proceedToNextSection = useCallback(async (isCorrect: boolean) => {

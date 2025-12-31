@@ -1,5 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest } from "next/server";
+import { createClient } from "@/utils/supabase/server";
+import { ChatService } from "@/lib/services/chatService";
+import { v4 as uuidv4 } from 'uuid';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!);
 
@@ -9,7 +12,16 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const { unitTitle, sectionTitle, goal, currentLevel } = await req.json();
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+        }
+
+        const { unitTitle, sectionTitle, goal, currentLevel, roomId } = await req.json();
+
+        // Note: We do NOT save a user message here, as this is typically a system-triggered action.
 
         const model = genAI.getGenerativeModel({
             model: "gemini-2.0-flash",
@@ -47,21 +59,37 @@ export async function POST(req: NextRequest) {
         const result = await model.generateContent(prompt);
         const text = result.response.text();
 
+        let responsePayload: any = null;
+        let aiMessageId = uuidv4();
+
         try {
             const parsed = JSON.parse(text);
-
-            // Validate the response structure
             if (parsed.explanation && parsed.practiceQuestion && parsed.chatMessage) {
-                return new Response(JSON.stringify({
+                responsePayload = {
                     type: "tool_call",
                     tool: "teach_section",
                     args: parsed,
-                }), {
-                    headers: { "Content-Type": "application/json" },
-                });
+                    aiMessageId
+                };
             }
-        } catch (parseError) {
-            console.error("Failed to parse JSON:", parseError, text);
+        } catch { }
+
+        if (responsePayload) {
+            if (roomId) {
+                try {
+                    await ChatService.addMessage(roomId, user.id, {
+                        id: aiMessageId,
+                        role: 'assistant',
+                        content: responsePayload.args.chatMessage // Use the generated chat message!
+                    });
+                } catch (e) {
+                    console.error("Failed to save AI message", e);
+                }
+            }
+
+            return new Response(JSON.stringify(responsePayload), {
+                headers: { "Content-Type": "application/json" },
+            });
         }
 
         // AI-generated fallback using simpler prompt
@@ -70,7 +98,7 @@ export async function POST(req: NextRequest) {
         const fallbackResult = await fallbackModel.generateContent(fallbackPrompt);
         const fallbackExplanation = fallbackResult.response.text();
 
-        return new Response(JSON.stringify({
+        const fallbackResponse = {
             type: "tool_call",
             tool: "teach_section",
             args: {
@@ -82,8 +110,23 @@ export async function POST(req: NextRequest) {
                     explanation: `${sectionTitle}の基本的なポイントを理解することが大切です。`
                 },
                 chatMessage: `📖 ${sectionTitle}を学んでいきましょう！`
+            },
+            aiMessageId: uuidv4()
+        };
+
+        if (roomId) {
+            try {
+                await ChatService.addMessage(roomId, user.id, {
+                    id: fallbackResponse.aiMessageId,
+                    role: 'assistant',
+                    content: fallbackResponse.args.chatMessage
+                });
+            } catch (e) {
+                console.error("Failed to save AI message", e);
             }
-        }), {
+        }
+
+        return new Response(JSON.stringify(fallbackResponse), {
             headers: { "Content-Type": "application/json" },
         });
 

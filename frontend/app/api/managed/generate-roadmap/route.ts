@@ -1,5 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest } from "next/server";
+import { createClient } from "@/utils/supabase/server";
+import { ChatService } from "@/lib/services/chatService";
+import { v4 as uuidv4 } from 'uuid';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!);
 
@@ -9,7 +12,28 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const { currentLevel, goal } = await req.json();
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+        }
+
+        const { currentLevel, goal, roomId, userMessageId } = await req.json();
+
+        // Save User Message
+        if (roomId && goal) {
+            try {
+                const messageId = userMessageId || uuidv4();
+                await ChatService.addMessage(roomId, user.id, {
+                    id: messageId,
+                    role: 'user',
+                    content: goal // User's goal is the message content
+                });
+            } catch (e) {
+                console.log("Failed to save user message", e);
+            }
+        }
 
         const model = genAI.getGenerativeModel({
             model: "gemini-2.0-flash",
@@ -53,28 +77,45 @@ export async function POST(req: NextRequest) {
         const result = await model.generateContent(prompt);
         const text = result.response.text();
 
+        let responsePayload: any = null;
+        let aiMessageId = uuidv4();
+
+        // Try parsing success case
         try {
             const parsed = JSON.parse(text);
-
-            // Validate the response structure
             if (parsed.goal && parsed.units && Array.isArray(parsed.units)) {
-                return new Response(JSON.stringify({
+                responsePayload = {
                     type: "tool_call",
                     tool: "generate_roadmap",
                     args: parsed,
-                }), {
-                    headers: { "Content-Type": "application/json" },
-                });
+                    aiMessageId
+                };
             }
-        } catch (parseError) {
-            console.error("Failed to parse JSON:", parseError, text);
+        } catch { }
+
+        if (responsePayload) {
+            if (roomId) {
+                try {
+                    await ChatService.addMessage(roomId, user.id, {
+                        id: aiMessageId,
+                        role: 'assistant',
+                        content: '学習ロードマップを作成しました。'
+                    });
+                } catch (e) {
+                    console.error("Failed to save AI message", e);
+                }
+            }
+
+            return new Response(JSON.stringify(responsePayload), {
+                headers: { "Content-Type": "application/json" },
+            });
         }
 
         // Fallback with a generic structure based on the goal
         const goalWords = goal.split(/[をのにはがで]/);
         const mainTopic = goalWords[0] || goal;
 
-        return new Response(JSON.stringify({
+        const fallbackResponse = {
             type: "tool_call",
             tool: "generate_roadmap",
             args: {
@@ -99,8 +140,23 @@ export async function POST(req: NextRequest) {
                         ]
                     }
                 ]
+            },
+            aiMessageId: uuidv4()
+        };
+
+        if (roomId) {
+            try {
+                await ChatService.addMessage(roomId, user.id, {
+                    id: fallbackResponse.aiMessageId,
+                    role: 'assistant',
+                    content: '学習ロードマップを作成しました。（生成失敗のためテンプレートを使用）'
+                });
+            } catch (e) {
+                console.error("Failed to save AI message", e);
             }
-        }), {
+        }
+
+        return new Response(JSON.stringify(fallbackResponse), {
             headers: { "Content-Type": "application/json" },
         });
 
