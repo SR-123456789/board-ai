@@ -7,6 +7,7 @@ import { UserMenu } from '@/components/UserMenu';
 import { useChatStore, RoomMode } from '@/hooks/use-chat-store';
 import { useBoardStore } from '@/hooks/use-board-store';
 import { useManagedStore } from '@/hooks/use-managed-store';
+import { RoomListSkeleton } from '@/components/ui/room-card-skeleton';
 import { Plus, MessageSquare, Clock, Trash2, ArrowLeft, X, BookOpen, Sparkles } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -33,6 +34,7 @@ interface RoomInfo {
 export default function RoomListPage() {
     const [mounted, setMounted] = useState(false);
     const [rooms, setRooms] = useState<RoomInfo[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [showModeDialog, setShowModeDialog] = useState(false);
     const router = useRouter();
     const chatStore = useChatStore();
@@ -45,6 +47,7 @@ export default function RoomListPage() {
     }, []);
 
     const fetchRooms = async () => {
+        setIsLoading(true);
         try {
             const res = await fetch('/api/rooms');
             if (res.ok) {
@@ -67,6 +70,8 @@ export default function RoomListPage() {
             }
         } catch (e) {
             console.error("Failed to fetch rooms", e);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -99,8 +104,25 @@ export default function RoomListPage() {
 
     if (!mounted) {
         return (
-            <div className="min-h-screen bg-slate-50 dark:bg-neutral-950 flex items-center justify-center">
-                <div className="text-neutral-400 animate-pulse">Loading...</div>
+            <div className="min-h-screen bg-slate-50 dark:bg-neutral-950 p-4 md:p-8">
+                <div className="max-w-2xl mx-auto">
+                    {/* Header skeleton */}
+                    <div className="flex items-center justify-between mb-6 md:mb-8">
+                        <div className="flex items-center gap-3 md:gap-4">
+                            <div className="w-9 h-9 bg-neutral-200 dark:bg-neutral-800 rounded-full animate-pulse" />
+                            <div>
+                                <div className="h-6 w-32 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse" />
+                                <div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse mt-1" />
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-neutral-200 dark:bg-neutral-800 rounded-full animate-pulse" />
+                            <div className="w-24 h-10 bg-neutral-200 dark:bg-neutral-800 rounded-lg animate-pulse" />
+                        </div>
+                    </div>
+                    {/* Room list skeleton */}
+                    <RoomListSkeleton count={3} />
+                </div>
             </div>
         );
     }
@@ -140,7 +162,9 @@ export default function RoomListPage() {
                 </div>
 
                 {/* Room List */}
-                {rooms.length === 0 ? (
+                {isLoading ? (
+                    <RoomListSkeleton count={3} />
+                ) : rooms.length === 0 ? (
                     <div className="text-center py-16 text-neutral-400">
                         <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
                         <p>ルームがありません</p>

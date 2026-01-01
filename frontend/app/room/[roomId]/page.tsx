@@ -14,6 +14,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, MessageSquare, Sparkles } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { UserMenu } from '@/components/UserMenu';
+import { BoardLoadingSkeleton } from '@/components/ui/board-loading-skeleton';
 
 export default function RoomPage() {
     const [mounted, setMounted] = useState(false);
@@ -197,13 +198,7 @@ export default function RoomPage() {
 
     // Prevent hydration mismatch by showing loading state until mounted
     if (!mounted) {
-        return (
-            <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-neutral-950">
-                <div className="flex-1 flex items-center justify-center">
-                    <div className="text-neutral-400 animate-pulse">Loading...</div>
-                </div>
-            </div>
-        );
+        return <BoardLoadingSkeleton />;
     }
 
     return (
