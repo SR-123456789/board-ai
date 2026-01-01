@@ -42,7 +42,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
         await RoomService.saveBoard(id, nodes);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

@@ -49,7 +49,14 @@ export default function RoomListPage() {
             const res = await fetch('/api/rooms');
             if (res.ok) {
                 const data = await res.json();
-                const apiRooms = (data.rooms || []).map((room: any) => ({
+                interface ApiRoom {
+                    id: string;
+                    messages?: Array<{ content: string }>;
+                    updatedAt: string;
+                    managedState?: unknown;
+                }
+
+                const apiRooms = (data.rooms || []).map((room: ApiRoom) => ({
                     id: room.id,
                     lastMessage: room.messages?.[room.messages.length - 1]?.content.substring(0, 60) || 'メッセージなし',
                     messageCount: room.messages?.length || 0,

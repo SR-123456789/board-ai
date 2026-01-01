@@ -95,8 +95,14 @@ export async function POST(req: Request) {
             }
         });
 
-        const history = messages.slice(0, -1).map((m: any) => ({
-            role: m.role === 'user' ? 'user' : 'model',
+        interface LocalMessage {
+            role: string;
+            parts?: Array<{ text?: string }>;
+            content?: string;
+        }
+
+        const history = messages.slice(0, -1).map((m: LocalMessage) => ({
+            role: m.role === 'user' ? 'user' as const : 'model' as const,
             parts: m.parts || [{ text: m.content || '' }]
         }));
 

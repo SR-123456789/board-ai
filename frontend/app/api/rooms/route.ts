@@ -29,7 +29,8 @@ export async function POST(request: Request) {
         const { title } = body;
         const room = await RoomService.createRoom(user.id, title);
         return NextResponse.json({ room });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

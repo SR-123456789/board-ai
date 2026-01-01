@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma';
 import { BoardNode } from '@/types/board';
 import { RoomMode, Message } from '@/hooks/use-chat-store';
+import { Prisma } from '@prisma/client';
 
 export class RoomService {
     static async createRoom(userId: string, title: string = 'Untitled Room', id?: string) {
@@ -76,7 +77,7 @@ export class RoomService {
         const board = await prisma.board.update({
             where: { roomId },
             data: {
-                nodes: nodes as any,
+                nodes: nodes as unknown as Prisma.InputJsonValue,
             },
         });
 
@@ -112,29 +113,35 @@ export class RoomService {
                     roomId,
                     role: m.role,
                     content: m.content,
-                    parts: m.parts ? (m.parts as any) : undefined, // Cast to any to satisfy Prisma Json input if strict
+                    parts: m.parts ? (m.parts as unknown as Prisma.InputJsonValue) : undefined, // Cast to InputJsonValue for Prisma
                     chatTurnId: m.chatTurnId
                 }))
             });
         }
     }
-    static async saveManagedState(roomId: string, state: any) {
+    static async saveManagedState(roomId: string, state: {
+        phase: string;
+        roadmap?: Record<string, unknown> | null;
+        currentUnitIndex: number;
+        currentSectionIndex: number;
+        hearingData?: Record<string, unknown> | null;
+    }) {
         return prisma.managedState.upsert({
             where: { roomId },
             create: {
                 roomId,
                 phase: state.phase,
-                roadmap: state.roadmap ? state.roadmap : undefined,
+                roadmap: state.roadmap ? (state.roadmap as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
                 currentUnitIndex: state.currentUnitIndex,
                 currentSectionIndex: state.currentSectionIndex,
-                hearingData: state.hearingData ? state.hearingData : undefined
+                hearingData: state.hearingData ? (state.hearingData as unknown as Prisma.InputJsonValue) : Prisma.DbNull
             },
             update: {
                 phase: state.phase,
-                roadmap: state.roadmap ? state.roadmap : undefined,
+                roadmap: state.roadmap ? (state.roadmap as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
                 currentUnitIndex: state.currentUnitIndex,
                 currentSectionIndex: state.currentSectionIndex,
-                hearingData: state.hearingData ? state.hearingData : undefined
+                hearingData: state.hearingData ? (state.hearingData as unknown as Prisma.InputJsonValue) : Prisma.DbNull
             }
         });
     }

@@ -64,7 +64,25 @@ ${context}
         const result = await model.generateContent(prompt);
         const text = result.response.text();
 
-        let responsePayload: any = null;
+        interface TeachSectionResponse {
+            type: string;
+            tool: string;
+            args: {
+                explanation: string;
+                practiceQuestion: {
+                    question: string;
+                    type: 'choice' | 'freeform';
+                    options?: string[];
+                    correctAnswer?: number;
+                    keywords?: string[];
+                    explanation?: string;
+                };
+                chatMessage: string;
+            };
+            aiMessageId: string;
+        }
+
+        let responsePayload: TeachSectionResponse | null = null;
         let aiMessageId = uuidv4();
 
         try {

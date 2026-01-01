@@ -77,7 +77,22 @@ export async function POST(req: NextRequest) {
         const result = await model.generateContent(prompt);
         const text = result.response.text();
 
-        let responsePayload: any = null;
+        interface RoadmapResponse {
+            type: string;
+            tool: string;
+            args: {
+                goal: string;
+                currentLevel: string;
+                units: Array<{
+                    id: string;
+                    title: string;
+                    sections: Array<{ id: string; title: string }>;
+                }>;
+            };
+            aiMessageId: string;
+        }
+
+        let responsePayload: RoadmapResponse | null = null;
         let aiMessageId = uuidv4();
 
         // Try parsing success case

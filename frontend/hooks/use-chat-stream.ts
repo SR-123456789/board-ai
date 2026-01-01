@@ -3,6 +3,7 @@ import { useBoardStore } from './use-board-store';
 import { useChatStore, Message } from './use-chat-store';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter, usePathname } from 'next/navigation';
+import { NodeType } from '@/types/board';
 
 // Re-export Message type for compatibility
 export type { Message } from './use-chat-store';
@@ -122,7 +123,24 @@ export const useChatStream = () => {
             const decoder = new TextDecoder();
             let aiMessageId = (Date.now() + 1).toString();
             let aiContent = "";
-            let toolArgs: any = null;
+
+            interface BoardOperation {
+                action: 'create' | 'update' | 'delete';
+                node: {
+                    id?: string;
+                    type?: NodeType;
+                    content?: string;
+                    style?: { color?: string; backgroundColor?: string };
+                };
+            }
+
+            interface ToolCallArgs {
+                comment?: string;
+                operations?: BoardOperation[];
+                suggestedQuestions?: string[];
+            }
+
+            let toolArgs: ToolCallArgs | null = null;
 
             // Add placeholder AI message
             addMessage({ id: aiMessageId, role: 'assistant', content: '', chatTurnId: chatTurnId });
@@ -144,13 +162,13 @@ export const useChatStream = () => {
                         } else if (data.type === 'tool_call' && data.toolName === 'generate_response') {
                             toolArgs = data.args;
 
-                            if (toolArgs.comment) {
+                            if (toolArgs && toolArgs.comment) {
                                 aiContent = toolArgs.comment;
                                 updateMessage(aiMessageId, { content: aiContent });
                             }
 
-                            if (toolArgs.operations && Array.isArray(toolArgs.operations)) {
-                                toolArgs.operations.forEach((op: any) => {
+                            if (toolArgs && toolArgs.operations && Array.isArray(toolArgs.operations)) {
+                                toolArgs.operations.forEach((op: BoardOperation) => {
                                     const { action, node } = op;
                                     if (action === 'create') {
                                         addNode({
@@ -169,7 +187,7 @@ export const useChatStream = () => {
                                 });
                             }
 
-                            if (toolArgs.suggestedQuestions && Array.isArray(toolArgs.suggestedQuestions)) {
+                            if (toolArgs && toolArgs.suggestedQuestions && Array.isArray(toolArgs.suggestedQuestions)) {
                                 setSuggestedQuestions(toolArgs.suggestedQuestions);
                             }
                         }

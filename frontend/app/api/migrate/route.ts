@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { RoomService } from '@/lib/services/roomService';
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 export async function POST(request: Request) {
     const supabase = await createClient();
@@ -78,13 +79,21 @@ export async function POST(request: Request) {
                 if (chatData && chatData.messages) {
                     await prisma.message.deleteMany({ where: { roomId } });
                     if (chatData.messages.length > 0) {
+                        interface LocalStorageMessage {
+                            id: string;
+                            role: string;
+                            content: string;
+                            parts?: unknown;
+                            chatTurnId?: string;
+                        }
+
                         await prisma.message.createMany({
-                            data: chatData.messages.map((m: any) => ({
+                            data: chatData.messages.map((m: LocalStorageMessage) => ({
                                 id: m.id,
                                 roomId,
                                 role: m.role,
                                 content: m.content,
-                                parts: m.parts ? (m.parts as any) : undefined,
+                                parts: m.parts ? (m.parts as unknown as Prisma.InputJsonValue) : undefined,
                                 chatTurnId: m.chatTurnId
                             }))
                         });
@@ -122,8 +131,9 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ message: 'Migration completed', results });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Migration error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : 'Migration failed';
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

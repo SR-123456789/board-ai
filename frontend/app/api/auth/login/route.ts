@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import type { OAuthProvider } from "@/types/api";
 
 export async function GET(request: Request) {
     const requestUrl = new URL(request.url);
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
     const supabase = await createClient();
 
     const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: provider as any,
+        provider: provider as OAuthProvider,
         options: {
             redirectTo,
             skipBrowserRedirect: true,

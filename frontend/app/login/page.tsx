@@ -32,8 +32,9 @@ function LoginContent() {
             // Use server-side endpoint to ensure correct redirect URL
             const loginUrl = `/api/auth/login?provider=google&next=${encodeURIComponent(next)}`;
             window.location.href = loginUrl;
-        } catch (error: any) {
-            setMessage({ type: 'error', text: error.message });
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'ログイン中にエラーが発生しました';
+            setMessage({ type: 'error', text: errorMessage });
             setLoading(false);
         }
     };
@@ -55,8 +56,9 @@ function LoginContent() {
 
             router.push(next);
             router.refresh();
-        } catch (error: any) {
-            setMessage({ type: 'error', text: error.message });
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'ログイン中にエラーが発生しました';
+            setMessage({ type: 'error', text: errorMessage });
         } finally {
             setLoading(false);
         }
@@ -83,8 +85,9 @@ function LoginContent() {
 
             if (error) throw error;
             setMessage({ type: 'success', text: '確認メールを送信しました。メールボックスを確認してください。' });
-        } catch (error: any) {
-            setMessage({ type: 'error', text: error.message });
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : '新規登録中にエラーが発生しました';
+            setMessage({ type: 'error', text: errorMessage });
         } finally {
             setLoading(false);
         }

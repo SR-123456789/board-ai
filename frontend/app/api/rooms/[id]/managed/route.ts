@@ -14,19 +14,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     try {
         // Check ownership but allow creation if it doesn't exist yet
-        let room = await RoomService.getRoom(id, user.id);
+        const existingRoom = await RoomService.getRoom(id, user.id);
 
         const body = await request.json();
         const { state } = body;
 
-        if (!room) {
+        if (!existingRoom) {
             // New room from Managed Mode initialization
-            room = await RoomService.createRoom(user.id, "家庭教師ルーム", id);
+            await RoomService.createRoom(user.id, "家庭教師ルーム", id);
         }
 
         await RoomService.saveManagedState(id, state);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

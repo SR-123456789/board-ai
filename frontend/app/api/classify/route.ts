@@ -38,8 +38,12 @@ export async function POST(req: Request) {
 
         // Get the last user message for classification
         const lastMessage = messages[messages.length - 1];
+        interface MessagePart {
+            text?: string;
+        }
+
         const userText = lastMessage.parts
-            ? lastMessage.parts.find((p: any) => p.text)?.text || ''
+            ? lastMessage.parts.find((p: MessagePart) => p.text)?.text || ''
             : lastMessage.content || '';
 
         const model = genAI.getGenerativeModel({

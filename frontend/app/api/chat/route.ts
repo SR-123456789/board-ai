@@ -4,6 +4,7 @@ import { UserService } from '@/lib/services/userService';
 import { ChatService } from '@/lib/services/chatService';
 import { RoomService } from '@/lib/services/roomService';
 import prisma from '@/lib/prisma';
+import type { GeminiHistoryMessage, ApiMessagePart } from '@/types/api';
 
 // Allow streaming responses up to 60 seconds
 export const maxDuration = 60;
@@ -107,7 +108,7 @@ export async function POST(req: Request) {
                 role: 'user',
                 content: lastMessage.content,
                 parts: lastMessage.parts
-            } as any);
+            });
         }
 
         const model = genAI.getGenerativeModel({
@@ -157,19 +158,25 @@ This tool puts text in the chat and updates the board.
             }
         });
 
-        const history = messages.slice(0, -1).map((m: any) => {
-            const role = m.role === 'user' ? 'user' : 'model';
+        interface LocalMessage {
+            role: string;
+            parts?: ApiMessagePart[];
+            content?: string;
+        }
+
+        const history: GeminiHistoryMessage[] = messages.slice(0, -1).map((m: LocalMessage) => {
+            const role = m.role === 'user' ? 'user' : 'model' as const;
 
             // If parts exist, filter to only valid Google AI SDK parts (text, fileData)
             if (m.parts && Array.isArray(m.parts)) {
                 const validParts = m.parts
-                    .filter((p: any) => p.text !== undefined || p.fileData !== undefined)
-                    .map((p: any) => {
+                    .filter((p: ApiMessagePart) => p.text !== undefined || p.fileData !== undefined)
+                    .map((p: ApiMessagePart) => {
                         if (p.text !== undefined) return { text: p.text };
                         if (p.fileData) return { fileData: p.fileData };
                         return null;
                     })
-                    .filter(Boolean);
+                    .filter((p): p is { text: string } | { fileData: { fileUri: string; mimeType: string } } => p !== null);
 
                 // If no valid parts remain, use content as text
                 if (validParts.length === 0) {
@@ -205,7 +212,7 @@ This tool puts text in the chat and updates the board.
             async start(controller) {
                 const encoder = new TextEncoder();
                 let fullResponseText = "";
-                let toolCallData: any = null;
+                let toolCallData: { comment?: string; [key: string]: unknown } | null = null;
 
                 try {
                     for await (const chunk of result.stream) {
@@ -213,7 +220,7 @@ This tool puts text in the chat and updates the board.
                         if (functionCalls && functionCalls.length > 0) {
                             for (const call of functionCalls) {
                                 if (call.name === 'generate_response') {
-                                    const args = call.args;
+                                    const args = call.args as { comment?: string; [key: string]: unknown };
                                     toolCallData = args;
 
                                     const data = JSON.stringify({
@@ -238,7 +245,7 @@ This tool puts text in the chat and updates the board.
                     }
 
                     if (roomId && userId) {
-                        const contentToSave = toolCallData ? toolCallData.comment : fullResponseText;
+                        const contentToSave = toolCallData?.comment ?? fullResponseText;
                         const partsToSave = toolCallData ? [{ text: contentToSave }, { tool_use: toolCallData }] : undefined;
 
                         await ChatService.addMessage(roomId, userId, {
@@ -246,7 +253,7 @@ This tool puts text in the chat and updates the board.
                             role: 'assistant',
                             content: contentToSave || '',
                             parts: partsToSave
-                        } as any);
+                        });
 
                         const outputTokens = (fullResponseText.length + JSON.stringify(toolCallData || {}).length) / 4;
                         await UserService.consumTokens(userId, Math.ceil(promptedTokenCount + outputTokens));

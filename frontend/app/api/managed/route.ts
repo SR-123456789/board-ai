@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType, Tool, FunctionDeclaration } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!);
 
@@ -118,7 +118,7 @@ export async function POST(req: Request) {
         const { action, messages, context } = await req.json();
 
         let systemPrompt = "";
-        let tools: any[] = [];
+        let tools: Tool[] = [];
 
         switch (action) {
             case "hearing_level":
@@ -142,7 +142,7 @@ Rules:
 
 Current Level: ${context.currentLevel}
 Goal: ${context.goal}`;
-                tools = [{ functionDeclarations: [GENERATE_ROADMAP_TOOL] }];
+                tools = [{ functionDeclarations: [GENERATE_ROADMAP_TOOL as unknown as FunctionDeclaration] }];
                 break;
 
             case "teach_section":
@@ -162,7 +162,7 @@ Rules:
 5. Respond in the same language as the user's messages
 
 Use the teach_section tool.`;
-                tools = [{ functionDeclarations: [TEACH_SECTION_TOOL] }];
+                tools = [{ functionDeclarations: [TEACH_SECTION_TOOL as unknown as FunctionDeclaration] }];
                 break;
 
             case "evaluate_answer":
@@ -180,7 +180,7 @@ Rules:
 5. Respond in the same language as the user
 
 Use the evaluate_answer tool.`;
-                tools = [{ functionDeclarations: [EVALUATE_ANSWER_TOOL] }];
+                tools = [{ functionDeclarations: [EVALUATE_ANSWER_TOOL as unknown as FunctionDeclaration] }];
                 break;
 
             case "modify_roadmap":
@@ -196,7 +196,7 @@ Understand what the user wants to change and use the generate_roadmap tool to ou
 - Reorder topics
 
 Keep the same structure but adjust based on the request. Respond in the same language as the user.`;
-                tools = [{ functionDeclarations: [GENERATE_ROADMAP_TOOL] }];
+                tools = [{ functionDeclarations: [GENERATE_ROADMAP_TOOL as unknown as FunctionDeclaration] }];
                 break;
 
             default:
@@ -211,7 +211,12 @@ Keep the same structure but adjust based on the request. Respond in the same lan
 
         // Filter history to ensure it starts with a user message
         // Gemini requires the first message in history to be from the user
-        const filteredMessages = messages.filter((m: any) => m.content?.trim());
+        interface LocalMessage {
+            role: string;
+            content?: string;
+        }
+
+        const filteredMessages = messages.filter((m: LocalMessage) => m.content?.trim());
         let historyStartIndex = 0;
         for (let i = 0; i < filteredMessages.length; i++) {
             if (filteredMessages[i].role === 'user') {
@@ -224,7 +229,7 @@ Keep the same structure but adjust based on the request. Respond in the same lan
         const historyMessages = filteredMessages.slice(historyStartIndex, -1);
 
         const chat = model.startChat({
-            history: historyMessages.length > 0 ? historyMessages.map((m: any) => ({
+            history: historyMessages.length > 0 ? historyMessages.map((m: LocalMessage) => ({
                 role: m.role === "assistant" ? "model" : "user",
                 parts: [{ text: m.content }],
             })) : [],
@@ -239,7 +244,7 @@ Keep the same structure but adjust based on the request. Respond in the same lan
 
         // Check for tool calls
         const candidate = response.candidates?.[0];
-        const functionCalls = candidate?.content?.parts?.filter((p: any) => p.functionCall);
+        const functionCalls = candidate?.content?.parts?.filter(p => 'functionCall' in p && p.functionCall);
 
         if (functionCalls && functionCalls.length > 0) {
             const functionCall = functionCalls[0].functionCall;

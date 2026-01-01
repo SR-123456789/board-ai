@@ -27,8 +27,9 @@ export async function POST(
 
         const updatedBoard = await RoomService.saveBoard(id, nodes);
         return NextResponse.json({ board: updatedBoard });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error saving board:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

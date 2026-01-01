@@ -1,5 +1,21 @@
 import prisma from '@/lib/prisma';
-import { Message } from '@/hooks/use-chat-store';
+import { Message, MessagePart } from '@/hooks/use-chat-store';
+
+/**
+ * APIルートで使用する拡張メッセージPart型（tool_useを含む）
+ */
+interface ExtendedMessagePart {
+    text?: string;
+    fileData?: { fileUri: string; mimeType: string };
+    tool_use?: Record<string, unknown>;
+}
+
+/**
+ * APIルートで使用する拡張Message型
+ */
+interface ExtendedMessage extends Omit<Message, 'parts'> {
+    parts?: ExtendedMessagePart[];
+}
 
 export class ChatService {
     static async getMessages(roomId: string, userId: string) {
@@ -29,7 +45,7 @@ export class ChatService {
         }));
     }
 
-    static async addMessage(roomId: string, userId: string, message: Message) {
+    static async addMessage(roomId: string, userId: string, message: ExtendedMessage) {
         // Verify access
         const room = await prisma.room.findUnique({
             where: { id: roomId },

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useManagedStore, Roadmap, Section } from './use-managed-store';
+import { useManagedStore, Roadmap, Section, Unit } from './use-managed-store';
 import { useChatStore, Message } from './use-chat-store';
 import { useBoardStore } from './use-board-store';
 import { v4 as uuidv4 } from 'uuid';
@@ -85,9 +85,9 @@ export function useManagedChat(roomId: string): UseManagedChatReturn {
         // - Section 1
         // - Section 2 (Current)
         // Create simple text representation of roadmap for context
-        const context = roadmap.units.map((u: any, uIdx: number) =>
+        const context = roadmap.units.map((u: Unit, uIdx: number) =>
             `Unit ${uIdx + 1}: ${u.title}\n` +
-            u.sections.map((s: any, sIdx: number) =>
+            u.sections.map((s: Section, sIdx: number) =>
                 (uIdx === unitIdx && sIdx === sectionIdx) ? `  - [現在の学習箇所] ${s.title}` : `  - ${s.title}`
             ).join('\n')
         ).join('\n');
