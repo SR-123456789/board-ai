@@ -40,11 +40,11 @@ export function useManagedChat(roomId: string): UseManagedChatReturn {
         return response.json();
     }, [roomId]);
 
-    const callTeachSection = useCallback(async (unitTitle: string, sectionTitle: string, goal: string, currentLevel: string, userMessageId: string) => {
+    const callTeachSection = useCallback(async (unitTitle: string, sectionTitle: string, goal: string, context: string, userMessageId: string) => {
         const response = await fetch('/api/managed/teach-section', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ roomId, unitTitle, sectionTitle, goal, currentLevel, userMessageId }),
+            body: JSON.stringify({ roomId, unitTitle, sectionTitle, goal, context, userMessageId }),
         });
         return response.json();
     }, [roomId]);
@@ -79,14 +79,24 @@ export function useManagedChat(roomId: string): UseManagedChatReturn {
         const unit = roadmap.units[unitIdx];
         const section = unit.sections[sectionIdx];
 
-        // Mark as in_progress
-        updateSectionStatus(roomId, unitIdx, sectionIdx, 'in_progress');
+        // Create simple text representation of roadmap for context
+        // e.g.
+        // Unit 1: Title
+        // - Section 1
+        // - Section 2 (Current)
+        // Create simple text representation of roadmap for context
+        const context = roadmap.units.map((u: any, uIdx: number) =>
+            `Unit ${uIdx + 1}: ${u.title}\n` +
+            u.sections.map((s: any, sIdx: number) =>
+                (uIdx === unitIdx && sIdx === sectionIdx) ? `  - [現在の学習箇所] ${s.title}` : `  - ${s.title}`
+            ).join('\n')
+        ).join('\n');
 
         const result = await callTeachSection(
             unit.title,
             section.title,
             roadmap.goal,
-            roadmap.currentLevel || '',
+            context,
             uuidv4()
         );
 

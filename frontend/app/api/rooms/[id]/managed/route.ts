@@ -13,14 +13,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     try {
-        // Verify ownership
-        const room = await RoomService.getRoom(id, user.id);
-        if (!room) {
-            return NextResponse.json({ error: 'Room not found' }, { status: 404 });
-        }
+        // Check ownership but allow creation if it doesn't exist yet
+        let room = await RoomService.getRoom(id, user.id);
 
         const body = await request.json();
         const { state } = body;
+
+        if (!room) {
+            // New room from Managed Mode initialization
+            room = await RoomService.createRoom(user.id, "家庭教師ルーム", id);
+        }
 
         await RoomService.saveManagedState(id, state);
         return NextResponse.json({ success: true });

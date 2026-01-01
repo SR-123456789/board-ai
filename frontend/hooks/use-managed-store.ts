@@ -160,12 +160,16 @@ export const useManagedStore = create<ManagedStore>()(
             },
 
             initializeRoom: (roomId) =>
-                set((state) => ({
-                    rooms: {
-                        ...state.rooms,
-                        [roomId]: { ...initialRoomState }
-                    }
-                })),
+                set((state) => {
+                    const newState = { ...initialRoomState };
+                    saveToServer(roomId, newState);
+                    return {
+                        rooms: {
+                            ...state.rooms,
+                            [roomId]: newState
+                        }
+                    };
+                }),
 
             getPhase: () => {
                 const { rooms, currentRoomId } = get();

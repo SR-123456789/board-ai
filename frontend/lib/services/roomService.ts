@@ -6,7 +6,7 @@ export class RoomService {
     static async createRoom(userId: string, title: string = 'Untitled Room', id?: string) {
         return prisma.room.create({
             data: {
-                id, // Optional: if provided, use it. If not, Prisma/DB generates it.
+                id: id || undefined, // Use explicit ID if provided (for client-generated UUIDs)
                 userId,
                 title,
                 board: {
@@ -37,7 +37,21 @@ export class RoomService {
         if (!room || room.userId !== userId) {
             return null;
         }
-        return room;
+
+        // Post-process to fix double-serialized parts (legacy data)
+        const messages = room.messages.map(msg => {
+            let parts = msg.parts;
+            if (typeof parts === 'string') {
+                try {
+                    parts = JSON.parse(parts);
+                } catch (e) {
+                    console.error("Failed to parse message parts", e);
+                }
+            }
+            return { ...msg, parts };
+        });
+
+        return { ...room, messages };
     }
 
     static async getUserRooms(userId: string) {
@@ -47,7 +61,11 @@ export class RoomService {
             include: {
                 board: {
                     select: { updatedAt: true }
-                }
+                },
+                messages: {
+                    orderBy: { createdAt: 'asc' },
+                },
+                managedState: true,
             }
         })
     }
@@ -94,7 +112,7 @@ export class RoomService {
                     roomId,
                     role: m.role,
                     content: m.content,
-                    parts: m.parts ? JSON.stringify(m.parts) : undefined,
+                    parts: m.parts ? (m.parts as any) : undefined, // Cast to any to satisfy Prisma Json input if strict
                     chatTurnId: m.chatTurnId
                 }))
             });

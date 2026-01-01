@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
             return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
         }
 
-        const { unitTitle, sectionTitle, goal, currentLevel, roomId } = await req.json();
+        const { unitTitle, sectionTitle, goal, context, roomId } = await req.json();
 
         // Note: We do NOT save a user message here, as this is typically a system-triggered action.
 
@@ -34,7 +34,12 @@ export async function POST(req: NextRequest) {
 
 **現在の節:** 「${sectionTitle}」（単元「${unitTitle}」内）
 **学習目標:** ${goal}
-**ユーザーのレベル:** ${currentLevel}
+
+**ロードマップ全体の流れ:**
+${context}
+
+**指示:**
+ロードマップ全体の流れを意識し、前後の文脈から逸脱しないように、この節「${sectionTitle}」で教えるべきことだけを的確に解説してください。
 
 以下のJSON形式で出力してください。必ず有効なJSONのみを出力してください：
 

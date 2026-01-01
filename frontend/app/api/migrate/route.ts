@@ -84,7 +84,7 @@ export async function POST(request: Request) {
                                 roomId,
                                 role: m.role,
                                 content: m.content,
-                                parts: m.parts ? JSON.stringify(m.parts) : undefined,
+                                parts: m.parts ? (m.parts as any) : undefined,
                                 chatTurnId: m.chatTurnId
                             }))
                         });

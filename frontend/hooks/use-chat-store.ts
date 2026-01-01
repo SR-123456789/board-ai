@@ -5,11 +5,15 @@ import { v4 as uuidv4 } from 'uuid';
 
 export type Role = 'user' | 'assistant';
 
+export type MessagePart =
+    | { text: string; fileData?: never }
+    | { fileData: { fileUri: string; mimeType: string }; text?: never };
+
 export interface Message {
     id: string;
     role: Role;
     content: string;
-    parts?: any[]; // For multimodal
+    parts?: MessagePart[]; // For multimodal
     chatTurnId?: string; // Grouping
     createdAt?: number;
     roomId?: string;

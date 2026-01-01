@@ -150,6 +150,15 @@ export default function RoomListPage() {
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
+                                            {room.mode === 'managed' ? (
+                                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                                    MANAGED
+                                                </span>
+                                            ) : (
+                                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                                    NORMAL
+                                                </span>
+                                            )}
                                             <span className="text-xs text-neutral-400 flex items-center gap-1">
                                                 <MessageSquare className="w-3 h-3" />
                                                 {room.messageCount}件
