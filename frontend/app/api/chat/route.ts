@@ -103,10 +103,17 @@ export async function POST(req: Request) {
         // 3. Persist User Message
         const lastMessage = messages[messages.length - 1];
         if (roomId && userId) {
+            // Extract text content from parts if content is empty
+            let messageContent = lastMessage.content || '';
+            if (!messageContent && lastMessage.parts) {
+                const textPart = lastMessage.parts.find((p: { text?: string }) => p.text);
+                messageContent = textPart?.text || '[ファイル添付]';
+            }
+
             await ChatService.addMessage(roomId, userId, {
                 id: lastMessage.id || crypto.randomUUID(),
                 role: 'user',
-                content: lastMessage.content,
+                content: messageContent,
                 parts: lastMessage.parts
             });
         }

@@ -61,3 +61,47 @@ html {
 .safe-area-top {
   padding-top: env(safe-area-inset-top, 0);
 }
+
+/* Custom Animations */
+@keyframes aurora {
+  0% { background-position: 50% 50%, 50% 50%; }
+  100% { background-position: 350% 50%, 350% 50%; }
+}
+
+.animate-aurora {
+  animation: aurora 60s linear infinite;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes grid {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
+}
+
+.animate-grid {
+  animation: grid 20s linear infinite;
+}
+
+/* Glassmorphic Utilities */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}

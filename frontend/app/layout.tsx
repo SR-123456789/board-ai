@@ -14,18 +14,23 @@ const geistMono = Geist_Mono({
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://board-ai.app";
-const siteName = "Board AI";
-const siteDescription = "AIがホワイトボードにノートを書きながら教える、ビジュアル学習プラットフォーム。チャットだけじゃない、新しい学習体験。";
+const siteName = "板書AI";
+const siteDescription = "板書AI - AIとの会話を、自動でホワイトボードに整理。ビジュアル学習AIプラットフォーム。";
 
 export const metadata: Metadata = {
   title: {
-    default: `${siteName} - AIが板書する新しい学習体験`,
+    default: `${siteName} - AIとの会話を自動でホワイトボードに整理`,
     template: `%s | ${siteName}`,
   },
   description: siteDescription,
   keywords: [
+    "板書AI",
+    "ボードAI",
+    "Board AI",
+    "AI板書",
+    "ホワイトボードAI学習",
+    "ホワイトボードAI",
     "AI学習",
-    "ホワイトボード",
     "AI家庭教師",
     "ビジュアル学習",
     "AIチャット",
@@ -33,6 +38,7 @@ export const metadata: Metadata = {
     "フレームワーク思考",
     "マインドマップ",
     "AIノート",
+    "AI教育",
   ],
   authors: [{ name: siteName }],
   creator: siteName,
@@ -46,7 +52,7 @@ export const metadata: Metadata = {
     locale: "ja_JP",
     url: siteUrl,
     siteName: siteName,
-    title: `${siteName} - AIが板書する新しい学習体験`,
+    title: `${siteName} - AIとの会話を自動でホワイトボードに整理`,
     description: siteDescription,
     images: [
       {
@@ -108,10 +114,12 @@ const jsonLd = {
     priceCurrency: "JPY",
   },
   featureList: [
-    "AIがホワイトボードにノートを作成",
-    "フレームワーク思考による学習",
+    "AIが板書してホワイトボードにノートを作成",
+    "ビジュアル学習AIによる効率的な学習体験",
+    "フレームワーク思考による深い理解",
     "ビジュアル表現（図表・マインドマップ）",
     "インタラクティブな深掘り学習",
+    "ホワイトボードAI学習",
   ],
 };
 
