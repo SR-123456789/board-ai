@@ -14,6 +14,7 @@ model User {
   email     String   @unique
   plan      String   @default("free") // "free", "pro", "plus", "admin", "vip"
   tokenUsage Int     @default(0) // Logic to reset monthly
+  lastResetDate DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

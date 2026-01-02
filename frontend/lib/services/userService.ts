@@ -15,11 +15,33 @@ export class UserService {
     }
 
     static async canConsumeTokens(userId: string, requestedAmount: number = 0): Promise<{ allowed: boolean; remaining?: number; error?: string }> {
-        const user = await this.getUser(userId);
+        let user = await this.getUser(userId);
         if (!user) {
-            // If user doesn't exist in public table (sync lag?), assume free limit or fail.
-            // For now, fail safe.
             return { allowed: false, error: 'User not found' };
+        }
+
+        // Lazy Monthly Reset Logic
+        const now = new Date();
+        // Handle case where lastResetDate might be missing or invalid
+        let lastReset = user.lastResetDate ? new Date(user.lastResetDate) : new Date(0);
+        
+        // Check if date is valid
+        if (isNaN(lastReset.getTime())) {
+            console.log(`[UserService] Invalid lastResetDate detected for user ${userId}, treating as never reset.`);
+            lastReset = new Date(0); // Force reset
+        }
+
+        if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
+            console.log(`[UserService] Resetting token usage for user ${userId} (Last reset: ${lastReset.toISOString()})`);
+            
+            // Reset in DB
+            user = await prisma.user.update({
+                where: { id: userId },
+                data: {
+                    tokenUsage: 0,
+                    lastResetDate: now
+                }
+            });
         }
 
         const planConfig = await this.getPlanConfig(user.plan);
