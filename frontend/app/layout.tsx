@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://board-ai.app";
 const siteName = "板書AI";
-const siteDescription = "板書AI - AIとの会話を、自動でホワイトボードに整理。ビジュアル学習AIプラットフォーム。";
+const siteDescription = "板書AI - AIがホワイトボードで教える！リアルタイム板書作成で学びを加速するビジュアル学習プラットフォーム。";
 
 export const metadata: Metadata = {
   title: {
-    default: `${siteName} - AIとの会話を自動でホワイトボードに整理`,
+    default: `${siteName} - AIがホワイトボードで教える！`,
     template: `%s | ${siteName}`,
   },
   description: siteDescription,

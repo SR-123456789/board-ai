@@ -40,8 +40,8 @@ export function HeroSection({ onStart, user }: HeroSectionProps) {
 
         {/* Description */}
         <p className="max-w-[640px] text-lg md:text-xl text-neutral-400 mb-12 leading-relaxed">
-         <strong className="text-white">板書AI</strong>は、あなたの思考をリアルタイムで可視化する<strong className="text-white">ビジュアル学習AI</strong>。<br className="hidden md:block" />
-         議論や学習の内容を<strong className="text-white">AI板書</strong>で構造化。もう、メモを取る必要はありません。
+         <strong className="text-white">板書AI</strong>がホワイトボードで教える！<br className="hidden md:block" />
+         対話するだけで、AIがリアルタイムに板書を作成。視覚的な解説で、あなたの学びを加速させます。
         </p>
 
         {/* CTA Buttons */}
