@@ -154,12 +154,24 @@ Current level: ${context.currentLevel}
 
 Rules:
 1. Create a clear, concise explanation (Markdown format) for the board
-2. Use headers, lists, examples, and code blocks as appropriate
+2. Use headers, lists, and visual diagrams:
+   - **Mermaid**: Use \`\`\`mermaid\`\`\` for flowcharts and sequence diagrams.
+   - **D2**: Use \`\`\`d2\`\`\` for complex architectural or nested diagrams.
 3. Create ONE practice question to test understanding:
    - Use "choice" for factual/conceptual questions (3-4 options)
    - Use "freeform" for application/analysis questions
 4. Keep the chat message to ONE line only
 5. Respond in the same language as the user's messages
+
+# D2 SYNTAX RULES (STRICT)
+- Syntax: ID: "Text Label" (Always quote labels)
+- Connections: A -> B (directional), A -- B (non-directional)
+- Semicolons: ALWAYS use a semicolon ; to separate properties within a block { ... }.
+- Styles: A.style.fill: "#aabbcc"
+- Edges: Dashed line only with "A -> B { style.stroke-dash: 4; target-arrowhead: "" }"
+- Arrowhead Control: Use \`target-arrowhead: ""\` to remove arrows. DO NOT use \`arrowHead: none\`.
+- Layout: direction: right
+- DO NOT use: nested style objects, stroke customization (except stroke-dash), or dotted IDs.
 
 Use the teach_section tool.`;
                 tools = [{ functionDeclarations: [TEACH_SECTION_TOOL as unknown as FunctionDeclaration] }];

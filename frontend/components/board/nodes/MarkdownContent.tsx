@@ -4,15 +4,17 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { MermaidDiagram } from './MermaidDiagram';
+import { D2Diagram } from './D2Diagram';
 
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface MarkdownContentProps {
     content: string;
+    onUpdate?: (newContent: string) => void;
 }
 
-export const MarkdownContent: React.FC<MarkdownContentProps> = ({ content }) => (
+export const MarkdownContent: React.FC<MarkdownContentProps> = ({ content, onUpdate }) => (
     <div className="prose dark:prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-pre:bg-[#1e1e1e] prose-pre:p-0 prose-pre:rounded-lg">
         <ReactMarkdown
             remarkPlugins={[remarkGfm]}
@@ -27,6 +29,21 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({ content }) => 
 
                     if (language === 'mermaid') {
                         return <MermaidDiagram chart={codeString} />;
+                    }
+
+                    if (language === 'd2') {
+                        return (
+                            <D2Diagram 
+                                code={codeString} 
+                                onFix={(fixed) => {
+                                    if (onUpdate) {
+                                        // Replace the specific D2 block in the full content
+                                        const newContent = content.replace(codeString, fixed);
+                                        onUpdate(newContent);
+                                    }
+                                }}
+                            />
+                        );
                     }
 
                     if (match) {

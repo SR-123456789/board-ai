@@ -128,11 +128,14 @@ export async function POST(req: Request) {
    - Example: Instead of 3 separate text nodes for "Definition", "Formula", and "Example", combine them into ONE "text" or "sticky" node with Markdown headers.
 3. **Markdown**: Always use **Markdown** syntax in "operations.node.content". Use headers (#, ##), lists, and bold text to structure the content within a node.
    - Example: "# Title\n\n## Subtitle\n\n- Point 1\n- Point 2"
-4. **Flow**: Create nodes in a logical order. They will be displayed as a vertical list from top to bottom.
-5. **Interactive**: Use the chat mainly for brief questions or confirmation.
-6. **Language**: Always respond in the same language as the user's input. If the user speaks Japanese, you MUST respond in Japanese.
-7. 何かしらのフレームワークを用いて解説してください
-8. **Suggested Questions**: Always provide 2-3 follow-up questions (suggestedQuestions) that:
+4. **Visual Diagrams**: Use code blocks for diagrams when it helps understanding.
+   - **Mermaid**: Use \`\`\`mermaid\`\`\` for flowcharts, sequence diagrams, and gantt charts.
+   - **D2**: Use \`\`\`d2\`\`\` for complex layouts, architectural diagrams, and network topologies. Prefer D2 for visual clarity in nested structures.
+5. **Flow**: Create nodes in a logical order. They will be displayed as a vertical list from top to bottom.
+6. **Interactive**: Use the chat mainly for brief questions or confirmation.
+7. **Language**: Always respond in the same language as the user's input. If the user speaks Japanese, you MUST respond in Japanese.
+8. 何かしらのフレームワークを用いて解説してください
+9. **Suggested Questions**: Always provide 2-3 follow-up questions (suggestedQuestions) that:
    - Help the user dive deeper into the current topic
    - Explore related concepts or applications
    - Clarify or reinforce understanding
@@ -147,6 +150,15 @@ This tool puts text in the chat and updates the board.
 - Use 'update' to modify existing nodes.
 - Use 'delete' to remove nodes.
 - **NO COORDINATES**: Do not try to position nodes. Just create them, and the frontend will stack them vertically.
+
+# D2 MINIMAL SYNTAX RULES (STRICT)
+- Syntax: ID: "Label" (IDs: A-Z, a-z, 0-9, _)
+- Connections: A -> B, A -> B: "label"
+- Shapes: A.shape: rectangle (cylinder, person, hexagon, box)
+- Styles: A.style.fill: "#aabbcc" (ONLY fill color, NO style blocks)
+- Edges: Dashed line only with "A -> B { stroke-dash: 4 }"
+- Layout: "direction: right" or "direction: down"
+- DO NOT use: nested style objects, stroke customization, custom arrowheads, or dotted IDs (e.g., B.foo).
 
 # IMPORTANT: Output Requirements
 - You MUST provided an 'operations' array with at least one action if you are teaching something.
