@@ -56,7 +56,7 @@ export function FeatureGrid() {
           </h2>
           <p className="text-neutral-400 text-lg">
             チャットするだけで、<strong className="text-white">ホワイトボードAI</strong>が議論を構造化。<br />
-            これまでにない<strong className="text-white">ビジュアル学習</strong>体験へ。
+            これまでにない<strong className="text-white">AI学習</strong>体験へ。
           </p>
         </div>
 

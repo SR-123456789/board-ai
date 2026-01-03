@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://board-ai.app";
 const siteName = "板書AI";
-const siteDescription = "板書AI - AIがホワイトボードで教える！リアルタイム板書作成で学びを加速するビジュアル学習プラットフォーム。";
+const siteDescription = "板書AI - AIがホワイトボードで教える！教師AIがリアルタイムに板書を作成。視覚的な解説で、あなたの学びを加速させます。";
 
 export const metadata: Metadata = {
   title: {
