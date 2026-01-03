@@ -20,6 +20,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({ onSend, isL
     const [files, setFiles] = useState<File[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const isComposingRef = useRef(false);
 
     useImperativeHandle(ref, () => ({
         setInputValue: (value: string) => {
@@ -62,9 +63,20 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({ onSend, isL
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
+            // Do not submit while IME is composing (checked via ref for reliability)
+            if (isComposingRef.current || e.nativeEvent.isComposing) return;
+
             e.preventDefault();
             handleSubmit();
         }
+    };
+
+    const handleCompositionStart = () => {
+        isComposingRef.current = true;
+    };
+
+    const handleCompositionEnd = () => {
+        isComposingRef.current = false;
     };
 
     return (
@@ -122,6 +134,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({ onSend, isL
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
+                        onCompositionStart={handleCompositionStart}
+                        onCompositionEnd={handleCompositionEnd}
                         placeholder="Ask a question..."
                         minRows={1}
                         maxRows={5}
