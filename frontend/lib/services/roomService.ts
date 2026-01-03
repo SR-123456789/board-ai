@@ -67,6 +67,9 @@ export class RoomService {
                     orderBy: { createdAt: 'asc' },
                 },
                 managedState: true,
+                parent: {
+                    select: { title: true }
+                }
             }
         })
     }
@@ -144,5 +147,53 @@ export class RoomService {
                 hearingData: state.hearingData ? (state.hearingData as unknown as Prisma.InputJsonValue) : Prisma.DbNull
             }
         });
+    }
+
+    /**
+     * Copy a room to create a child room
+     * - Copies board nodes
+     * - Does NOT copy messages (starts fresh conversation)
+     * - Does NOT copy managed state
+     */
+    static async copyRoom(roomId: string, userId: string, initialQuestion?: string) {
+        // Get original room with board
+        const originalRoom = await prisma.room.findUnique({
+            where: { id: roomId },
+            include: { board: true }
+        });
+
+        if (!originalRoom || originalRoom.userId !== userId) {
+            return null;
+        }
+
+        // Create new room with parent reference
+        const newRoom = await prisma.room.create({
+            data: {
+                userId,
+                title: originalRoom.title ? `${originalRoom.title} (copy)` : 'Untitled Room (copy)',
+                parentId: roomId,
+                board: {
+                    create: {
+                        nodes: originalRoom.board?.nodes ?? [],
+                    },
+                },
+            },
+            include: {
+                board: true,
+            },
+        });
+
+        // If initial question is provided, create an initial user message
+        if (initialQuestion) {
+            await prisma.message.create({
+                data: {
+                    roomId: newRoom.id,
+                    role: 'user',
+                    content: initialQuestion,
+                }
+            });
+        }
+
+        return newRoom;
     }
 }

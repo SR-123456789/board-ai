@@ -1,14 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { MessageCircle, Send } from 'lucide-react';
+import { MessageCircle, Send, ExternalLink } from 'lucide-react';
 
 interface SelectionPopupProps {
     onAsk: (text: string) => void;
     onInsert: (text: string) => void;
+    onAskInNewRoom?: (text: string) => void;
 }
 
-export const SelectionPopup: React.FC<SelectionPopupProps> = ({ onAsk, onInsert }) => {
+export const SelectionPopup: React.FC<SelectionPopupProps> = ({ onAsk, onInsert, onAskInNewRoom }) => {
     const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
     const [selectedText, setSelectedText] = useState<string>('');
     const popupRef = useRef<HTMLDivElement>(null);
@@ -70,6 +71,15 @@ export const SelectionPopup: React.FC<SelectionPopupProps> = ({ onAsk, onInsert 
         }
     };
 
+    const handleAskInNewRoom = () => {
+        if (selectedText && onAskInNewRoom) {
+            onAskInNewRoom(selectedText);
+            setPosition(null);
+            setSelectedText('');
+            window.getSelection()?.removeAllRanges();
+        }
+    };
+
     if (!position || !selectedText) return null;
 
     return (
@@ -97,6 +107,15 @@ export const SelectionPopup: React.FC<SelectionPopupProps> = ({ onAsk, onInsert 
                     <MessageCircle className="w-3.5 h-3.5" />
                     chat欄へ
                 </button>
+                {onAskInNewRoom && (
+                    <button
+                        onClick={handleAskInNewRoom}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-md transition-colors"
+                    >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        別ルームで質問
+                    </button>
+                )}
             </div>
             {/* Arrow pointing down */}
             <div className="absolute left-1/2 -translate-x-1/2 top-full">
@@ -105,3 +124,4 @@ export const SelectionPopup: React.FC<SelectionPopupProps> = ({ onAsk, onInsert 
         </div>
     );
 };
+

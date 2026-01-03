@@ -8,7 +8,7 @@ import { useChatStore, RoomMode } from '@/hooks/use-chat-store';
 import { useBoardStore } from '@/hooks/use-board-store';
 import { useManagedStore } from '@/hooks/use-managed-store';
 import { RoomListSkeleton } from '@/components/ui/room-card-skeleton';
-import { Plus, MessageSquare, Clock, Trash2, ArrowLeft, X, BookOpen, Sparkles } from 'lucide-react';
+import { Plus, MessageSquare, Clock, Trash2, ArrowLeft, X, BookOpen, Sparkles, Copy } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -29,6 +29,8 @@ interface RoomInfo {
     messageCount: number;
     lastUpdated: number;
     mode?: RoomMode;
+    parentId?: string | null;
+    parentTitle?: string | null;
 }
 
 export default function RoomListPage() {
@@ -57,6 +59,8 @@ export default function RoomListPage() {
                     messages?: Array<{ content: string }>;
                     updatedAt: string;
                     managedState?: unknown;
+                    parentId?: string | null;
+                    parent?: { title: string | null } | null;
                 }
 
                 const apiRooms = (data.rooms || []).map((room: ApiRoom) => ({
@@ -64,7 +68,9 @@ export default function RoomListPage() {
                     lastMessage: room.messages?.[room.messages.length - 1]?.content.substring(0, 60) || 'メッセージなし',
                     messageCount: room.messages?.length || 0,
                     lastUpdated: new Date(room.updatedAt).getTime(),
-                    mode: room.managedState ? 'managed' : 'normal'
+                    mode: room.managedState ? 'managed' : 'normal',
+                    parentId: room.parentId,
+                    parentTitle: room.parent?.title
                 }));
                 setRooms(apiRooms.sort((a: RoomInfo, b: RoomInfo) => b.lastUpdated - a.lastUpdated));
             }
@@ -180,7 +186,7 @@ export default function RoomListPage() {
                             >
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
+                                        <div className="flex flex-wrap items-center gap-2 mb-1">
                                             {room.mode === 'managed' ? (
                                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                                                     MANAGED
@@ -188,6 +194,12 @@ export default function RoomListPage() {
                                             ) : (
                                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                                                     NORMAL
+                                                </span>
+                                            )}
+                                            {room.parentId && (
+                                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 flex items-center gap-1">
+                                                    <Copy className="w-2.5 h-2.5" />
+                                                    コピー元: {room.parentTitle || '削除されたルーム'}
                                                 </span>
                                             )}
                                             <span className="text-xs text-neutral-400 flex items-center gap-1">

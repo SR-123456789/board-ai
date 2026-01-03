@@ -10,8 +10,8 @@ import { useChatStream } from '@/hooks/use-chat-stream';
 import { useChatStore } from '@/hooks/use-chat-store';
 import { useManagedChat } from '@/hooks/use-managed-chat';
 import { useManagedStore } from '@/hooks/use-managed-store';
-import { useParams } from 'next/navigation';
-import { ArrowLeft, MessageSquare, Sparkles } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { ArrowLeft, MessageSquare, Sparkles, Copy } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { UserMenu } from '@/components/UserMenu';
 import { BoardLoadingSkeleton } from '@/components/ui/board-loading-skeleton';
@@ -157,7 +157,8 @@ export default function RoomPage() {
         }
     }, []);
 
-    // Handle text selection actions
+    const router = useRouter();
+
     const handleAskAboutText = useCallback((text: string) => {
         chatPanelRef.current?.triggerSend(`「${text}」について教えてください`);
         setMobileTab('chat');
@@ -167,6 +168,52 @@ export default function RoomPage() {
         chatPanelRef.current?.setInputValue(text);
         setMobileTab('chat');
     }, []);
+
+    const handleAskInNewRoom = useCallback(async (text: string) => {
+        try {
+            // Save context for auto-sender in the new room
+            const questionText = `「${text}」について教えてください`;
+            localStorage.setItem('pendingMessage', JSON.stringify({ input: questionText }));
+
+            const response = await fetch(`/api/rooms/${roomId}/copy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}) // Don't pass initialQuestion here to avoid DB duplicate
+            });
+
+            if (!response.ok) {
+                localStorage.removeItem('pendingMessage'); // Cleanup on error
+                throw new Error('Failed to copy room');
+            }
+
+            const newRoom = await response.json();
+            // Redirect to the new room - the pendingMessage will be picked up by RoomPage's useEffect
+            router.push(`/room/${newRoom.id}`);
+        } catch (error) {
+            console.error('Error in handleAskInNewRoom:', error);
+            alert('新しいルームの作成に失敗しました。');
+        }
+    }, [roomId, router]);
+
+    const handleCopyRoom = useCallback(async () => {
+        if (!confirm('このルームをコピーして新しい子ルームを作成しますか？')) return;
+        
+        try {
+            const response = await fetch(`/api/rooms/${roomId}/copy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+
+            if (!response.ok) throw new Error('Failed to copy room');
+
+            const newRoom = await response.json();
+            router.push(`/room/${newRoom.id}`);
+        } catch (error) {
+            console.error('Error in handleCopyRoom:', error);
+            alert('ルームのコピーに失敗しました。');
+        }
+    }, [roomId, router]);
 
     // Auto-scroll to hide Safari URL bar on mobile load
     useEffect(() => {
@@ -205,20 +252,27 @@ export default function RoomPage() {
         <div className="flex flex-col md:flex-row min-h-screen md:h-screen w-full md:w-screen relative md:overflow-hidden">
             {/* Selection Popup for text actions (desktop only) */}
             <div className="hidden md:block">
-                <SelectionPopup onAsk={handleAskAboutText} onInsert={handleInsertToChat} />
+                <SelectionPopup 
+                    onAsk={handleAskAboutText} 
+                    onInsert={handleInsertToChat}
+                    onAskInNewRoom={handleAskInNewRoom}
+                />
             </div>
 
             {/* Desktop Layout: Side by side */}
             {/* Left: Board (takes remaining space) - hidden on mobile */}
             <div className="hidden md:block flex-1 relative">
-                {/* Back Button */}
-                <Link
-                    href="/room"
-                    className="absolute top-4 left-4 z-20 w-9 h-9 flex items-center justify-center bg-white/80 dark:bg-neutral-800/80 backdrop-blur-sm rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-white dark:hover:bg-neutral-800 transition-all shadow-sm"
-                    title="ルーム一覧へ戻る"
-                >
-                    <ArrowLeft className="w-4 h-4" />
-                </Link>
+                {/* Header Controls */}
+                <div className="absolute top-4 left-4 z-20 flex gap-2">
+                    {/* Back Button */}
+                    <Link
+                        href="/room"
+                        className="w-9 h-9 flex items-center justify-center bg-white/80 dark:bg-neutral-800/80 backdrop-blur-sm rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-white dark:hover:bg-neutral-800 transition-all shadow-sm"
+                        title="ルーム一覧へ戻る"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                    </Link>
+                </div>
 
                 <BoardCanvas
                     ref={boardRef}

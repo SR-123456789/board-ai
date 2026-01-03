@@ -37,6 +37,11 @@ model Room {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
+  // Parent-child relationship for copied rooms
+  parentId  String?
+  parent    Room?    @relation("RoomHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Room[]   @relation("RoomHierarchy")
+  
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   board     Board?
   messages  Message[]
